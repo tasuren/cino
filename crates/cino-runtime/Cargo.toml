@@ -1,0 +1,11 @@
+[package]
+name = "cino-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cino-vm = { path = "../cino-vm" }
+
+[lib]
+path = "src/lib.rs"

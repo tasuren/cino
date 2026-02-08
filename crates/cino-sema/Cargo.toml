@@ -1,0 +1,11 @@
+[package]
+name = "cino-sema"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cino-syntax = { path = "../cino-syntax" }
+
+[lib]
+path = "src/lib.rs"
