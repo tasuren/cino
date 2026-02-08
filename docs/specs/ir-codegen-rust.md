@@ -69,3 +69,29 @@ Rust コード生成は次用途に限定して提供可能。
 - バイトコードはバージョニング必須
 - 非互換変更時はバージョンを上げる
 - コンパイラ/ランタイム不一致は明示失敗にする
+
+## 8. Rust ワークスペース構成（MVP 推奨）
+
+MVP では Cargo workspace を採用し、責務境界ごとに次のクレートへ分割する。
+
+1. `cino-syntax`
+2. `cino-sema`
+3. `cino-ir`
+4. `cino-vm`
+5. `cino-runtime`
+6. `cino-ffi-c`
+7. `cino-docgen`
+8. `cino-cli`
+
+初期段階では `cino-syntax` / `cino-sema` / `cino-ir` / `cino-vm` / `cino-cli` を最小セットとし、
+FFI と docgen は段階的に追加してよい。
+
+## 9. クレート依存方向
+
+依存は次方向を原則とする。
+
+- `cino-syntax` -> `cino-sema` -> `cino-ir` -> `cino-vm` -> `cino-runtime`
+- `cino-ffi-c` は `cino-runtime` に依存
+- `cino-cli` は上位オーケストレーションとして `cino-runtime` / `cino-docgen` に依存
+
+循環依存は禁止する。

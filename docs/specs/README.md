@@ -25,3 +25,14 @@
 - 決定的なドメイン挙動
 - Rust 優先インタプリタ/VM 実装
 - 安定したホスト連携と仕様書生成
+
+## 実装クレート（MVP 推奨）
+
+- `cino-syntax`: 構文木とパーサ
+- `cino-sema`: 型/純粋性/網羅性検査
+- `cino-ir`: 型付きIRと lowering
+- `cino-vm`: バイトコード実行器
+- `cino-runtime`: 実行APIと状態ハンドル管理
+- `cino-ffi-c`: C ABI 公開層
+- `cino-docgen`: 仕様書生成
+- `cino-cli`: 開発者向けCLI
