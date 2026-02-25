@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 cino-ir = { path = "../cino-ir" }
+cino-syntax = { path = "../cino-syntax" }
 
 [lib]
 path = "src/lib.rs"
