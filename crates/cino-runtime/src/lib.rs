@@ -54,6 +54,10 @@ impl StateHandle {
     pub fn from_value(value: VmState) -> Self {
         Self { inner: value }
     }
+
+    pub fn as_value(&self) -> &VmState {
+        &self.inner
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
