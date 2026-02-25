@@ -5,6 +5,7 @@ members = [
   "crates/cino-ir",
   "crates/cino-vm",
   "crates/cino-runtime",
+  "crates/cino-ffi-c",
   "crates/cino-cli",
 ]
 resolver = "2"

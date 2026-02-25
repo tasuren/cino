@@ -84,3 +84,67 @@ C ABI の実装は `cino-ffi-c` クレートに集約する。
 `cino-ffi-c` は `cino-runtime` を呼び出す薄い境界層として実装し、ドメイン評価ロジックを持たない。
 
 この方針により、ホスト公開契約と内部実行系の責務を分離する。
+
+## 11. MVP C ABI（確定）
+
+MVP では、シリアライズ境界を CBOR に固定する。
+`cino_value_t` / `cino_actions_t` は内部で CBOR バイト列を保持し、必要時に VM 値へデコードして利用する。
+
+### 11.1 返却規約
+
+すべての関数は `cino_status_t` を返す。
+
+- `CINO_STATUS_OK`: 成功
+- `CINO_STATUS_ERR`: 失敗（`out_error` が設定される）
+
+`out_*` ポインタは成功時のみ書き込み、失敗時は不変とする。
+
+### 11.2 不透明ハンドル
+
+- `cino_program_t`
+- `cino_state_t`
+- `cino_value_t`
+- `cino_actions_t`
+- `cino_error_t`
+
+### 11.3 主要 API
+
+- `cino_program_new_mock_counter(out_program, out_error)`
+- `cino_program_destroy(program)`
+- `cino_state_new(program, initial_value, out_state, out_error)`
+- `cino_state_destroy(state)`
+- `cino_state_to_value(state, out_value, out_error)`
+- `cino_update(program, state, event, out_next_state, out_actions, out_error)`
+- `cino_query(program, state, query, out_result, out_error)`
+- `cino_value_new_from_cbor(data, len, out_value, out_error)`
+- `cino_value_destroy(value)`
+- `cino_value_bytes(value, out_ptr, out_len)`
+- `cino_actions_destroy(actions)`
+- `cino_actions_bytes(actions, out_ptr, out_len)`
+- `cino_error_destroy(error)`
+- `cino_error_code(error)`
+- `cino_error_message(error)`
+
+### 11.4 所有権/解放
+
+- `new` / `update` / `query` / `to_value` が返すハンドル所有権は呼び出し側にある
+- 呼び出し側は対応する `destroy`/`free` を必ず呼ぶ
+- `bytes` API が返すポインタはハンドル所有メモリを指し、ハンドル破棄まで有効
+
+### 11.5 エラーコード
+
+- `CINO_ERROR_RUNTIME_STEP_LIMIT_EXCEEDED`
+- `CINO_ERROR_RUNTIME_MEMORY_LIMIT_EXCEEDED`
+- `CINO_ERROR_RUNTIME_RECURSION_LIMIT_EXCEEDED`
+- `CINO_ERROR_RUNTIME_INVALID_INPUT`
+- `CINO_ERROR_RUNTIME_TRAP`
+- `CINO_ERROR_RUNTIME_PANIC`
+- `CINO_ERROR_ABI_NULL_POINTER`
+- `CINO_ERROR_ABI_INVALID_CBOR`
+- `CINO_ERROR_ABI_INVALID_HANDLE`
+- `CINO_ERROR_ABI_INTERNAL`
+
+### 11.6 互換性注意
+
+MVP `program` 生成は `mock_counter` のみ提供する。
+将来、IR/バイトコード読込 API を追加する際は後方互換を維持し、既存関数の意味を変更しない。

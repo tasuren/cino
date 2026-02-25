@@ -1,0 +1,20 @@
+[package]
+name = "cino-ffi-c"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cino-runtime = { path = "../cino-runtime" }
+cino-vm = { path = "../cino-vm" }
+serde_cbor = "0.11"
+
+[build-dependencies]
+cc = "1"
+
+[lints.rust]
+unsafe_code = "allow"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+path = "src/lib.rs"
