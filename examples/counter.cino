@@ -1,9 +1,9 @@
-/// カウンター — cino 最小サンプル
+/// Counter — Minimal cino sample
 ///
-/// State   : Int (カウント値)
+/// State   : Int (current count)
 /// Event   : Increment / Decrement / Reset
 /// Query   : GetCount
-/// Action  : なし（このサンプルでは副作用不要）
+/// Action  : None (no side effects needed for this sample)
 
 enum Action =
   | NoOp

@@ -1,11 +1,11 @@
-/// 信号機 — enum 状態機械サンプル
+/// Traffic Light — Enum state machine sample
 ///
-/// State   : TrafficLight (列挙型をそのまま状態に使う例)
-/// Event   : Tick（一段階進める）
+/// State   : TrafficLight (example of using an enum directly as state)
+/// Event   : Tick (advance by one stage)
 /// Query   : CurrentLight
-/// Action  : なし
+/// Action  : None
 ///
-/// 遷移: Red -> Green -> Yellow -> Red -> ...
+/// Transitions: Red -> Green -> Yellow -> Red -> ...
 
 enum Action =
   | NoOp

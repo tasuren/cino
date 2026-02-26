@@ -1,12 +1,12 @@
-/// TODOリスト — Action 生成サンプル
+/// TODO List — Action generation sample
 ///
-/// State   : Int (未完了タスク数)
+/// State   : Int (pending task count)
 /// Event   : AddTask / CompleteTask / Clear
 /// Query   : PendingCount
-/// Action  : TaskCompleted（タスク完了時にホストへ通知する副作用要求）
+/// Action  : TaskCompleted (side-effect request to notify the host when a task is completed)
 ///
-/// ポイント: ドメインコードは副作用を直接実行せず、
-///           Action を返してホスト側に実行を委ねる。
+/// Points: Domain code does not execute side effects directly,
+///           but returns Actions to delegate execution to the host.
 
 enum Action =
   | TaskCompleted

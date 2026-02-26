@@ -1,4 +1,4 @@
-/// counter.cino — counter_app が読み込む cino ソース（examples/counter.cino と同内容）
+/// counter.cino — cino source loaded by counter_app (same content as examples/counter.cino)
 
 enum Action =
   | NoOp

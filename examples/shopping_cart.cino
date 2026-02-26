@@ -1,15 +1,15 @@
-/// ショッピングカート — 大きめのサンプル
+/// Shopping Cart — Larger sample
 ///
-/// State   : Int (カート合計金額)
+/// State   : Int (cart total amount)
 /// Event   : AddItem / RemoveItem / ApplyDiscount / PlaceOrder / Clear
 /// Query   : GetTotal
 /// Action  : OrderPlaced { total } / CartCleared
 ///
-/// ポイント:
-///   - ユーザー定義関数 (fn) で割引計算をカプセル化
-///   - PlaceOrder でホストへ「注文確定」アクションを要求
-///   - Clear でホストへ「カートクリア」アクションを要求
-///   - ドメインコードは金額の加減算と Action 生成のみを行う
+/// Key Points:
+///   - Encapsulate discount calculation in a user-defined function (fn)
+///   - Request "Order Placed" action to the host via PlaceOrder
+///   - Request "Cart Cleared" action to the host via Clear
+///   - Domain code only handles amount addition/subtraction and Action generation
 
 enum Action =
   | OrderPlaced { total: Int }
