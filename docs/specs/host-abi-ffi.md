@@ -1,107 +1,107 @@
-# cino ホスト ABI・FFI 仕様（ドラフト）
+# cino Host ABI & FFI Specification (Draft)
 
-## 1. 対象範囲
+## 1. Scope
 
-本書はホスト連携契約を定義する。
-低レベル正準インターフェースは C ABI とする。
-Rust クレート API は C ABI の安全ラッパとして提供する。
+This document defines the host integration contract.
+The canonical low-level interface is the C ABI.
+The Rust crate API is provided as a safe wrapper around the C ABI.
 
-## 2. 不透明ハンドル
+## 2. Opaque Handles
 
-ホスト可視の不透明型:
+Host-visible opaque types:
 
 - `cino_program_t`
 - `cino_state_t`
-- `cino_value_t`（必要時）
+- `cino_value_t` (when needed)
 - `cino_actions_t`
 - `cino_error_t`
 
-ホスト側は内部レイアウトへアクセスしない。
+The host must not access the internal layout of these handles.
 
-## 3. ライフサイクル API（概念）
+## 3. Lifecycle API (Conceptual)
 
-- プログラム生成/読込
-- 初期 state 生成
-- update 実行
-- query 実行
-- result/action/error 解放
+- Program creation / loading
+- Initial state creation
+- Execute update
+- Execute query
+- Release result / action / error
 
-生成されたハンドルには必ず対になる `destroy/free` を用意する。
+Every created handle must have a paired `destroy/free` function.
 
-## 4. Update/Query 契約
+## 4. Update / Query Contract
 
-- update 入力: `(state, event)`
-- update 出力: `(new_state, actions)` または `error`
-- query 入力: `(state, query)`
-- query 出力: `result` または `error`
+- update input: `(state, event)`
+- update output: `(new_state, actions)` or `error`
+- query input: `(state, query)`
+- query output: `result` or `error`
 
-例外は ABI 境界を越えない。
+Exceptions must not cross the ABI boundary.
 
-## 5. 所有権規則
+## 5. Ownership Rules
 
-- 返却ハンドルの所有権は呼び出し側にある
-- 引数渡しで所有権は移動しない（明示APIを除く）
-- 所有権移動APIは命名と仕様で明示する
+- The caller owns the returned handle.
+- Passing a handle as an argument does not transfer ownership (except through explicit transfer APIs).
+- Ownership-transferring APIs must be clearly named and documented in the specification.
 
-## 6. シリアライズ境界
+## 6. Serialization Boundary
 
-MVP では CBOR（`cino-codec` クレート）に固定する。
+MVP fixes the serialization format to CBOR (`cino-codec` crate).
 
-- `cino_value_t` / `cino_actions_t` は内部で CBOR バイト列を保持する
-- ホストは `cino_value_new_from_cbor` で CBOR バイト列を渡し、`cino_value_bytes` / `cino_actions_bytes` で取り出す
-- CBOR エンコードは RFC 8949 Core Deterministic Encoding Requirements に準拠する
-- JSON はデバッグ用途にのみ使用し、ABI の正準フォーマットとして扱わない
+- `cino_value_t` / `cino_actions_t` internally hold CBOR byte sequences.
+- The host passes a CBOR byte sequence via `cino_value_new_from_cbor` and retrieves it via `cino_value_bytes` / `cino_actions_bytes`.
+- CBOR encoding conforms to RFC 8949 Core Deterministic Encoding Requirements.
+- JSON is used only for debugging purposes and is not treated as the canonical ABI format.
 
-## 7. エラーモデル
+## 7. Error Model
 
-すべての失敗は明示値で返す。
+All failures are returned as explicit values.
 
-- コンパイル/読込失敗
-- 検証/型エラー
-- 実行時上限超過
-- 不正ハンドル/API誤用
+- Compilation / loading failures
+- Validation / type errors
+- Runtime limit exceeded
+- Invalid handle / API misuse
 
-各エラーは次を持つ。
+Each error holds the following:
 
-- 安定したエラーコード
-- 人間可読メッセージ
-- 任意のソース位置
+- A stable error code
+- A human-readable message
+- An optional source location
 
-## 8. スレッド規則
+## 8. Thread Rules
 
-- ハンドルごとのスレッド安全性を明示する
-- 非スレッド安全の場合、外部同期を要求する
+- Thread safety for each handle must be explicitly documented.
+- If a handle is not thread-safe, external synchronization is required.
 
-## 9. WASM 注記
+## 9. WASM Notes
 
-WASM API も C ABI と同じ意味契約を守る。
+The WASM API must honor the same semantic contract as the C ABI.
 
-- 不透明 state
-- 明示的 update/query
-- 明示的エラー値
+- Opaque state
+- Explicit update / query
+- Explicit error values
 
-## 10. 実装クレート配置
+## 10. Implementation Crate Placement
 
-C ABI の実装は `cino-ffi-c` クレートに集約する。
-`cino-ffi-c` は `cino-runtime` を呼び出す薄い境界層として実装し、ドメイン評価ロジックを持たない。
+The C ABI implementation is consolidated in the `cino-ffi-c` crate.
+`cino-ffi-c` is implemented as a thin boundary layer that calls `cino-runtime` and holds no domain evaluation logic.
 
-この方針により、ホスト公開契約と内部実行系の責務を分離する。
+This policy separates the responsibilities of the host-facing contract and the internal execution engine.
 
-## 11. MVP C ABI（確定）
+## 11. MVP C ABI (Finalized)
 
-MVP では、シリアライズ境界を CBOR に固定する。
-`cino_value_t` / `cino_actions_t` は内部で CBOR バイト列を保持し、必要時に VM 値へデコードして利用する。
+MVP fixes the serialization boundary to CBOR.
+`cino_value_t` / `cino_actions_t` internally hold CBOR byte sequences and decode them to VM values when needed.
 
-### 11.1 返却規約
+### 11.1 Return Convention
 
-すべての関数は `cino_status_t` を返す。
+All functions return `cino_status_t`.
 
-- `CINO_STATUS_OK`: 成功
-- `CINO_STATUS_ERR`: 失敗（`out_error` が設定される）
+- `CINO_STATUS_OK`: Success
+- `CINO_STATUS_ERR`: Failure (`out_error` is set)
 
-`out_*` ポインタは成功時のみ書き込み、失敗時は不変とする。
+`out_*` pointers are written only on success; they are left unchanged on failure.
 
-### 11.2 不透明ハンドル
+### 11.2 Opaque Handles
 
 - `cino_program_t`
 - `cino_state_t`
@@ -109,7 +109,7 @@ MVP では、シリアライズ境界を CBOR に固定する。
 - `cino_actions_t`
 - `cino_error_t`
 
-### 11.3 主要 API
+### 11.3 Primary API
 
 - `cino_program_new_mock_counter(out_program, out_error)`
 - `cino_program_destroy(program)`
@@ -127,13 +127,13 @@ MVP では、シリアライズ境界を CBOR に固定する。
 - `cino_error_code(error)`
 - `cino_error_message(error)`
 
-### 11.4 所有権/解放
+### 11.4 Ownership / Deallocation
 
-- `new` / `update` / `query` / `to_value` が返すハンドル所有権は呼び出し側にある
-- 呼び出し側は対応する `destroy`/`free` を必ず呼ぶ
-- `bytes` API が返すポインタはハンドル所有メモリを指し、ハンドル破棄まで有効
+- Handles returned by `new` / `update` / `query` / `to_value` are owned by the caller.
+- The caller must always call the corresponding `destroy` / `free`.
+- Pointers returned by `bytes` APIs point to memory owned by the handle and remain valid until the handle is destroyed.
 
-### 11.5 エラーコード
+### 11.5 Error Codes
 
 - `CINO_ERROR_RUNTIME_STEP_LIMIT_EXCEEDED`
 - `CINO_ERROR_RUNTIME_MEMORY_LIMIT_EXCEEDED`
@@ -146,7 +146,7 @@ MVP では、シリアライズ境界を CBOR に固定する。
 - `CINO_ERROR_ABI_INVALID_HANDLE`
 - `CINO_ERROR_ABI_INTERNAL`
 
-### 11.6 互換性注意
+### 11.6 Compatibility Note
 
-MVP `program` 生成は `mock_counter` のみ提供する。
-将来、IR/バイトコード読込 API を追加する際は後方互換を維持し、既存関数の意味を変更しない。
+The MVP `program` creation provides only `mock_counter`.
+When adding IR / bytecode loading APIs in the future, backward compatibility must be maintained and the semantics of existing functions must not be changed.

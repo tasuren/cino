@@ -1,43 +1,43 @@
-# cino コア言語仕様（ドラフト）
+# cino Core Language Specification (Draft)
 
-## 1. 対象範囲
+## 1. Scope
 
-本書は cino の中核言語モデルを定義する。
-cino は直接的な副作用を持たない、決定的なドメイン定義言語である。
+This document defines the core language model of cino.
+cino is a deterministic domain definition language that has no direct side effects.
 
-## 2. 中核モデル
+## 2. Core Model
 
-- `State`: 不透明なドメイン状態
-- `Event`: 状態遷移を引き起こす入力
+- `State`: opaque domain state
+- `Event`: input that triggers a state transition
 - `Update`: `State x Event -> (State, List<Action>)`
-- `Query`: 状態を読み取る要求
-- `Action`: ホスト実行系に渡す副作用要求
+- `Query`: request to read state
+- `Action`: side-effect request passed to the host runtime
 
-## 3. 純粋性と禁止操作
+## 3. Purity and Forbidden Operations
 
-ユーザープログラムでは以下を禁止する。
+The following are forbidden in user programs.
 
 - I/O
-- 時刻取得
-- 乱数生成
-- グローバル可変状態
-- 例外の送出/捕捉
-- 外部ライブラリの直接呼び出し
+- Time access
+- Random number generation
+- Global mutable state
+- Throwing/catching exceptions
+- Direct calls to external libraries
 
-副作用境界は `Action` の生成のみとする。
+The only permitted side-effect boundary is constructing `Action` values.
 
-## 4. 宣言
+## 4. Declarations
 
-トップレベル宣言は次に限定する。
+Top-level declarations are limited to the following.
 
-- `state`（不変レコード）
-- `event`（タグ付きユニオン）
-- `query`（タグ付きユニオン）
-- `result` / ドメイン `enum` / `record`
-- `update` 関数
-- `query` 関数
+- `state` (immutable record)
+- `event` (tagged union)
+- `query` (tagged union)
+- `result` / domain `enum` / `record`
+- `update` function
+- `query` function
 
-例:
+Example:
 
 ```cino
 state BillingState {
@@ -57,16 +57,16 @@ update(state: BillingState, event: BillingEvent) -> (BillingState, List<Action>)
 query(state: BillingState, q: BillingQuery) -> Result<QueryResult, DomainError> = ...
 ```
 
-## 5. 最小構文 EBNF（MVP）
+## 5. Minimal Syntax EBNF (MVP)
 
-### 5.1 記法
+### 5.1 Notation
 
-- `"`で囲むものは予約語または記号の終端記号
-- `A | B` は選択
-- `{ X }` は 0 回以上繰り返し
-- `[ X ]` は 0 回または 1 回
+- Items enclosed in `"` are reserved words or terminal symbols
+- `A | B` denotes alternation
+- `{ X }` denotes zero or more repetitions
+- `[ X ]` denotes zero or one occurrence
 
-### 5.2 文法
+### 5.2 Grammar
 
 ```ebnf
 program         = { top_decl } ;
@@ -118,15 +118,15 @@ stmt            = let_stmt ;
 let_stmt        = "let" ident "=" expr ;
 ```
 
-### 5.3 未確定事項（TODO）
+### 5.3 Open Questions (TODO)
 
-- TODO: `IDENT` と予約語衝突回避を含む字句規則（Unicode 許可範囲を含む）
-- TODO: `EXPR` の優先順位/結合規則と最小演算子集合
-- TODO: `variant_list` の行区切り（改行必須か、`;` 区切りを許可するか）
-- TODO: `query` キーワード（型宣言と関数宣言）を将来分離するかどうか
-- TODO: `Map<K, V>` の `K` 制約（比較可能性）を構文か静的意味論のどちらで表現するか
+- TODO: Lexical rules including `IDENT` and reserved word conflict avoidance (including Unicode ranges)
+- TODO: Operator precedence/associativity rules and the minimal operator set for `EXPR`
+- TODO: Line separators in `variant_list` (whether newline is required or `;` is permitted)
+- TODO: Whether to separate the `query` keyword (type declaration vs. function declaration) in the future
+- TODO: Whether `Map<K, V>` `K` comparability constraints are expressed in syntax or static semantics
 
-## 6. 構文サンプル（MVP）
+## 6. Syntax Examples (MVP)
 
 ### 6.1 `state`
 
@@ -145,7 +145,7 @@ event BillingEvent =
   | PaymentReceived { id: InvoiceId, amount: Decimal }
 ```
 
-### 6.3 `query`（宣言）
+### 6.3 `query` (declaration)
 
 ```cino
 query BillingQuery =
@@ -153,7 +153,7 @@ query BillingQuery =
   | InvoiceStatus { id: InvoiceId }
 ```
 
-### 6.4 `update` 関数宣言
+### 6.4 `update` function declaration
 
 ```cino
 update(state: BillingState, event: BillingEvent) -> (BillingState, List<Action>) {
@@ -161,7 +161,7 @@ update(state: BillingState, event: BillingEvent) -> (BillingState, List<Action>)
 }
 ```
 
-### 6.5 `query` 関数宣言
+### 6.5 `query` function declaration
 
 ```cino
 query(state: BillingState, q: BillingQuery) -> Result<QueryResult, DomainError> {
@@ -212,7 +212,7 @@ record BillingState {
 }
 ```
 
-### 6.11 ユーザー定義関数 `fn`
+### 6.11 User-defined function `fn`
 
 ```cino
 fn can_issue(balance: Decimal, limit: Decimal) -> Bool {
@@ -220,7 +220,7 @@ fn can_issue(balance: Decimal, limit: Decimal) -> Bool {
 }
 ```
 
-### 6.12 複数行の式ブロック
+### 6.12 Multi-statement expression block
 
 ```cino
 fn score(base: Int, bonus: Int) -> Int {
@@ -230,37 +230,37 @@ fn score(base: Int, bonus: Int) -> Int {
 }
 ```
 
-## 7. データ型
+## 7. Data Types
 
-組み込み型:
+Built-in types:
 
 - `Int`, `Decimal`, `Bool`, `String`
 - `List<T>`, `Map<K, V>`
 - `Option<T>`, `Result<T, E>`
-- ユーザー定義 `enum` / `record`
+- User-defined `enum` / `record`
 
-TODO: `Decimal` 型は型検査層（`cino-sema`）では認識されるが、VM（`cino-vm`）の値表現（`VmValue`）に対応バリアントが存在しないため実行時には未対応。  
-TODO: `String` 型は型検査層では認識されるが、字句解析器（`cino-syntax`）が文字列リテラルを未対応のため、実際に文字列値を書けない。
+TODO: `Decimal` is recognized by the type-checking layer (`cino-sema`) but has no corresponding variant in the VM value representation (`VmValue`), so it is not supported at runtime.  
+TODO: `String` is recognized by the type-checking layer, but the lexer (`cino-syntax`) does not support string literals, so string values cannot actually be written.
 
-## 8. パターンマッチ
+## 8. Pattern Matching
 
-- `event` / `query` / 任意の `enum` に対する `match` は網羅必須
-- 非網羅はコンパイルエラー
-- フォールスルーは認めない
+- `match` on `event` / `query` / any `enum` must be exhaustive
+- Non-exhaustive matches are compile errors
+- Fallthrough is not permitted
 
-## 9. 評価契約
+## 9. Evaluation Contract
 
-- `fn`（ユーザー定義関数）は純粋かつ決定的でなければならない
-- `update` は純粋かつ決定的
-- `query` は純粋かつ決定的
-- 同一入力は同一出力を返す
-- 外界変化は `Event` 注入でのみ表現する
+- `fn` (user-defined functions) must be pure and deterministic
+- `update` must be pure and deterministic
+- `query` must be pure and deterministic
+- Identical inputs must produce identical outputs
+- Changes from the outside world are expressed only through `Event` injection
 
-## 10. エラーモデル
+## 10. Error Model
 
-- 例外は使わない
-- ドメイン失敗は `Result` で明示する
+- Exceptions are not used
+- Domain failures are expressed explicitly via `Result`
 
-## 11. 安定性ルール
+## 11. Stability Rule
 
-将来の言語拡張は、決定性と副作用禁止を壊してはならない。
+Future language extensions must not break determinism or the prohibition on side effects.

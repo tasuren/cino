@@ -1,47 +1,47 @@
-# cino 静的意味論仕様（MVP）
+# cino Static Semantics Specification (MVP)
 
-## 1. 対象範囲
+## 1. Scope
 
-本書は cino MVP の静的検査契約を定義する。
+This document defines the static checking contract for cino MVP.
 
-- 型検査
-- 純粋性検査
-- `fn` 制約検査（決定性・再帰上限）
-- `match` 網羅性/到達不能検査
-- 診断コード体系
+- Type checking
+- Purity checking
+- `fn` constraint checking (determinism, recursion limit)
+- `match` exhaustiveness / unreachable arm checking
+- Diagnostic code system
 
-本書で規定した静的規則違反はコンパイルエラーとして報告し、`file:line:column` を必須で付与する。
-実行時制約（再帰深さ上限など）は実行時エラーとして報告する。
+Violations of the static rules defined in this document are reported as compile errors and must include `file:line:column`.
+Runtime constraints (such as recursion depth limits) are reported as runtime errors.
 
-## 2. 基本方針
+## 2. Fundamental Policies
 
-- レコード型は構造的同値で判定する
-- 列挙型（`event` / `query` / `enum`）は名前的同値で判定する
-- 暗黙型変換は行わない（明示的な構文が仕様化されるまで不許可）
-- 同一入力は同一出力を返す（決定性）
+- Record types are compared by structural equivalence.
+- Enumeration types (`event` / `query` / `enum`) are compared by nominal equivalence.
+- Implicit type conversions are not performed (disallowed until explicit syntax is specified).
+- The same input must always produce the same output (determinism).
 
-## 3. 型規則
+## 3. Type Rules
 
-### 3.1 組み込み/ジェネリクス型
+### 3.1 Built-in / Generic Types
 
-- リテラル型: `Int`, `Decimal`, `Bool`, `String`
-- ジェネリクス: `List<T>`, `Map<K, V>`, `Option<T>`, `Result<T, E>`
-- ユーザー型: `record`, `enum`, `state`, `event`, `query`
+- Literal types: `Int`, `Decimal`, `Bool`, `String`
+- Generics: `List<T>`, `Map<K, V>`, `Option<T>`, `Result<T, E>`
+- User-defined types: `record`, `enum`, `state`, `event`, `query`
 
-`Map<K, V>` の `K` は決定的な比較が可能な型でなければならない。
+`K` in `Map<K, V>` must be a type that supports deterministic comparison.
 
-TODO: `Decimal` 型は静的意味論層では認識されるが、VM の値表現（`VmValue`）に対応バリアントが存在しないため実行時には未対応。  
-TODO: `String` 型は静的意味論層では認識されるが、字句解析器が文字列リテラルを未対応のため、実際に文字列値を書けない。
+TODO: The `Decimal` type is recognized at the static semantics layer but has no corresponding variant in the VM value representation (`VmValue`), so it is unsupported at runtime.  
+TODO: The `String` type is recognized at the static semantics layer but the lexer does not yet support string literals, so string values cannot currently be written.
 
-### 3.2 関数シグネチャ
+### 3.2 Function Signatures
 
 - `update(state: S, event: E) -> (S, List<Action>)`
 - `query(state: S, q: Q) -> Result<R, Err>`
 - `fn name(...) -> T`
 
-`update` / `query` の引数個数・戻り値形は固定契約であり、適合しない宣言は不正とする。
+The number of arguments and return type shape for `update` / `query` are fixed contracts; declarations that do not conform are invalid.
 
-成功例:
+Successful example:
 
 ```cino
 update(state: BillingState, event: BillingEvent) -> (BillingState, List<Action>) {
@@ -49,7 +49,7 @@ update(state: BillingState, event: BillingEvent) -> (BillingState, List<Action>)
 }
 ```
 
-失敗例（戻り値契約違反）:
+Failing example (return type contract violation):
 
 ```cino
 update(state: BillingState, event: BillingEvent) -> BillingState {
@@ -57,13 +57,13 @@ update(state: BillingState, event: BillingEvent) -> BillingState {
 }
 ```
 
-### 3.3 ブロック式戻り値規則
+### 3.3 Block Expression Return Value Rules
 
-- `fn` / `update` / `query` の本体は式ブロックとして扱う
-- ブロックの最後の式が戻り値となる
-- `return` 文は MVP では不許可
+- The body of `fn` / `update` / `query` is treated as an expression block.
+- The last expression in the block is the return value.
+- `return` statements are not allowed in MVP.
 
-成功例:
+Successful example:
 
 ```cino
 fn score(base: Int, bonus: Int) -> Int {
@@ -72,7 +72,7 @@ fn score(base: Int, bonus: Int) -> Int {
 }
 ```
 
-失敗例（`return` 非対応）:
+Failing example (`return` not supported):
 
 ```cino
 fn score(base: Int, bonus: Int) -> Int {
@@ -80,27 +80,27 @@ fn score(base: Int, bonus: Int) -> Int {
 }
 ```
 
-## 4. 純粋性規則
+## 4. Purity Rules
 
-### 4.1 禁止操作
+### 4.1 Prohibited Operations
 
-以下は `fn` / `update` / `query` で禁止する。
+The following are prohibited in `fn` / `update` / `query`:
 
 - I/O
-- 時刻取得
-- 乱数生成
-- 可変グローバル状態
-- 例外送出/捕捉
-- 外部ライブラリ・外部関数の直接呼び出し
+- Clock / wall time access
+- Random number generation
+- Mutable global state
+- Exception throwing / catching
+- Direct calls to external libraries or external functions
 
-### 4.2 許可操作
+### 4.2 Permitted Operations
 
-- 不変なローカル束縛
-- 純粋式評価
-- 純粋な `fn` 呼び出し
-- `Action` 値の構築（実行は行わない）
+- Immutable local bindings
+- Pure expression evaluation
+- Calls to pure `fn` functions
+- Construction of `Action` values (not execution)
 
-成功例:
+Successful example:
 
 ```cino
 fn can_issue(balance: Decimal, limit: Decimal) -> Bool {
@@ -108,7 +108,7 @@ fn can_issue(balance: Decimal, limit: Decimal) -> Bool {
 }
 ```
 
-失敗例（不純操作）:
+Failing example (impure operation):
 
 ```cino
 fn should_retry() -> Bool {
@@ -116,20 +116,20 @@ fn should_retry() -> Bool {
 }
 ```
 
-## 5. `fn` 規則（MVP）
+## 5. `fn` Rules (MVP)
 
-- `fn` はトップレベル宣言のみ許可（入れ子関数は禁止）
-- `fn` は純粋かつ決定的でなければならない
-- `update` / `query` から呼び出せるのは検証済み `fn` のみ
-- 再帰呼び出し（直接・間接）は許可する
-- 再帰深さはランタイム上限 `max_recursion_depth` を超えてはならない
+- `fn` declarations are only allowed at the top level (nested functions are prohibited).
+- `fn` must be pure and deterministic.
+- Only verified `fn` functions may be called from `update` / `query`.
+- Recursive calls (direct or indirect) are permitted.
+- Recursion depth must not exceed the runtime limit `max_recursion_depth`.
 
-注記:
+Notes:
 
-- 上限値自体は実行設定（`docs/specs/runtime-memory-rust.md`）で定義する
-- 静的意味論は「再帰が許可されること」と「上限超過が実行時エラーであること」を契約化する
+- The limit value itself is defined in the execution configuration (`docs/specs/runtime-memory-rust.md`).
+- The static semantics contract specifies that "recursion is permitted" and that "exceeding the limit is a runtime error".
 
-成功例（再帰）:
+Successful example (recursion):
 
 ```cino
 fn fact(n: Int) -> Int {
@@ -140,7 +140,7 @@ fn fact(n: Int) -> Int {
 }
 ```
 
-失敗例（入れ子 `fn`）:
+Failing example (nested `fn`):
 
 ```cino
 fn outer(x: Int) -> Int {
@@ -149,14 +149,14 @@ fn outer(x: Int) -> Int {
 }
 ```
 
-## 6. `match` 規則
+## 6. `match` Rules
 
-- `event` / `query` / `enum` に対する `match` は網羅必須
-- ワイルドカード `_` は残り全ケースを網羅する
-- 既に網羅済みの後続アームは到達不能エラーとする
-- ガード付きパターンは MVP 非対応
+- `match` on `event` / `query` / `enum` types must be exhaustive.
+- The wildcard `_` covers all remaining cases.
+- Subsequent arms that are already covered are reported as unreachable errors.
+- Guard patterns (`if`-guarded arms) are not supported in MVP.
 
-成功例（網羅）:
+Successful example (exhaustive):
 
 ```cino
 match event {
@@ -165,7 +165,7 @@ match event {
 }
 ```
 
-失敗例（非網羅）:
+Failing example (non-exhaustive):
 
 ```cino
 match event {
@@ -173,7 +173,7 @@ match event {
 }
 ```
 
-失敗例（到達不能）:
+Failing example (unreachable arm):
 
 ```cino
 match status {
@@ -182,42 +182,42 @@ match status {
 }
 ```
 
-## 7. MVP 非対応事項
+## 7. Features Not Supported in MVP
 
-以下は MVP では仕様外（使用時はコンパイルエラー）とする。
+The following are out of specification in MVP (compile error if used):
 
-- クロージャ式
-- `return` 文
-- `match` ガード（`if` 付きアーム）
+- Closure expressions
+- `return` statements
+- `match` guards (`if`-guarded arms)
 
-## 8. 診断コード体系
+## 8. Diagnostic Code System
 
-### 8.1 `E-TYPE-*`（型）
+### 8.1 `E-TYPE-*` (Type)
 
-- `E-TYPE-001`: 型不一致
-- `E-TYPE-002`: 未解決シンボル
-- `E-TYPE-003`: ジェネリクス引数数不一致（TODO: 未実装）
-- `E-TYPE-004`: 不正な `update/query` シグネチャ
-- `E-TYPE-005`: `Map<K, V>` の `K` が比較不能（TODO: 未実装）
+- `E-TYPE-001`: Type mismatch
+- `E-TYPE-002`: Unresolved symbol
+- `E-TYPE-003`: Wrong number of generic arguments (TODO: not yet implemented)
+- `E-TYPE-004`: Invalid `update/query` signature
+- `E-TYPE-005`: `K` in `Map<K, V>` is not comparable (TODO: not yet implemented)
 
-### 8.2 `E-PURE-*`（純粋性）
+### 8.2 `E-PURE-*` (Purity)
 
-- `E-PURE-001`: 禁止副作用操作の使用
-- `E-PURE-002`: 外部関数/外部ライブラリ呼び出し
+- `E-PURE-001`: Use of a prohibited side-effectful operation
+- `E-PURE-002`: Call to an external function or external library
 
-### 8.3 `E-FN-*`（関数規則）
+### 8.3 `E-FN-*` (Function Rules)
 
-- `E-FN-001`: `fn` がトップレベル以外で宣言されている（TODO: 未実装）
-- `E-FN-002`: `fn` 本体が純粋性規則に違反
-- `E-FN-003`: `return` 文の使用（MVP 非対応）
-- `E-FN-004`: 再帰深さ上限超過（実行時エラーコード）
+- `E-FN-001`: `fn` declared outside the top level (TODO: not yet implemented)
+- `E-FN-002`: `fn` body violates purity rules
+- `E-FN-003`: Use of a `return` statement (not supported in MVP)
+- `E-FN-004`: Recursion depth limit exceeded (runtime error code)
 
-### 8.4 `E-MATCH-*`（パターンマッチ）
+### 8.4 `E-MATCH-*` (Pattern Matching)
 
-- `E-MATCH-001`: `match` が非網羅
-- `E-MATCH-002`: 到達不能アーム
-- `E-MATCH-003`: ガード付きアームの使用（MVP 非対応）
+- `E-MATCH-001`: Non-exhaustive `match`
+- `E-MATCH-002`: Unreachable arm
+- `E-MATCH-003`: Use of a guard arm (not supported in MVP)
 
-### 8.5 `E-UNSUPPORTED-*`（MVP 非対応）
+### 8.5 `E-UNSUPPORTED-*` (Not Supported in MVP)
 
-- `E-UNSUPPORTED-001`: クロージャ式の使用
+- `E-UNSUPPORTED-001`: Use of a closure expression

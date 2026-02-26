@@ -1,70 +1,70 @@
-# cino 仕様書生成仕様（ドラフト）
+# cino Documentation Generation Specification (Draft)
 
-## 1. 対象範囲
+## 1. Scope
 
-本書は cino ソースから仕様書を決定的に生成する規則を定義する。
-生成時に LLM は利用しない。
+This document defines the rules for deterministically generating specification documents from cino source.
+LLMs are not used during generation.
 
-## 2. 入力
+## 2. Input
 
-- 構文解析済み AST
-- 検証済みシンボル/型情報
-- メタデータ注釈
+- Parsed AST
+- Validated symbol / type information
+- Metadata annotations
 
-各ドメインシンボルの必須メタデータ:
+Required metadata for each domain symbol:
 
 - `name_ja`
 - `name_en`
-- 短い説明
+- Short description
 
-任意項目:
+Optional items:
 
-- 制約条件
-- カテゴリタグ（`state`, `event`, `query`, `rule`, `term`）
+- Constraints
+- Category tags (`state`, `event`, `query`, `rule`, `term`)
 
-## 3. 出力形式
+## 3. Output Formats
 
-- 日本語仕様書: Markdown / HTML
-- 英語仕様書: Markdown / HTML
+- Japanese specification: Markdown / HTML
+- English specification: Markdown / HTML
 
-同一入力に対しては安定した差分が得られる出力とする。
+The output must produce stable diffs for the same input.
 
-## 4. 生成規則
+## 4. Generation Rules
 
-- セクション順序を固定する
-- テンプレートベースで生成する
-- AST + メタデータ以外の暗黙推論をしない
+- Section order is fixed.
+- Generation is template-based.
+- No implicit inference beyond AST and metadata.
 
-## 5. 最低限の生成セクション
+## 5. Minimum Generated Sections
 
-- ドメイン概要
-- 状態モデル
-- イベント一覧
-- クエリ一覧
-- update 遷移規則
-- Action 一覧
-- 制約・不変条件
+- Domain overview
+- State model
+- Event list
+- Query list
+- Update transition rules
+- Action list
+- Constraints and invariants
 
-## 6. トレーサビリティ
+## 6. Traceability
 
-各生成節に追跡情報を保持する。
+Each generated section retains traceability information:
 
-- ソースシンボルID
-- ソース位置（可能な場合）
+- Source symbol ID
+- Source location (when available)
 
-これにより仕様書とコードの往復確認を可能にする。
+This enables round-trip verification between the specification document and the code.
 
-## 7. 多言語整合性
+## 7. Multi-language Consistency
 
-- `name_ja` / `name_en` 欠落は警告（strict ではエラー）
-- 用語集を日英で生成する
-- 言語間でセクションIDを安定化する
+- Missing `name_ja` / `name_en` is a warning (error in strict mode).
+- A glossary is generated in both Japanese and English.
+- Section IDs are stabilized across languages.
 
-## 8. CLI 契約（提案）
+## 8. CLI Contract (Proposed)
 
 ```text
 cino docgen --in <source-or-package> --lang ja --out ./docs/ja
 cino docgen --in <source-or-package> --lang en --out ./docs/en
 ```
 
-strict モードでメタデータ不備がある場合は非0終了コードとする。
+If metadata is incomplete in strict mode, the process exits with a non-zero exit code.

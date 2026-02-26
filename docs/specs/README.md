@@ -1,6 +1,6 @@
-# cino 仕様書セット（MVP）
+# cino Specification Set (MVP)
 
-## ドキュメント一覧
+## Document List
 
 1. `core-language.md`
 2. `static-semantics.md`
@@ -9,30 +9,30 @@
 5. `host-abi-ffi.md`
 6. `docgen-spec.md`
 
-## 推奨読了順
+## Recommended Reading Order
 
-1. コア言語仕様
-2. 静的意味論仕様
-3. 実行系・メモリ仕様
-4. IR・コード生成仕様
-5. ホスト ABI・FFI 仕様
-6. 仕様書生成仕様
+1. Core Language Specification
+2. Static Semantics Specification
+3. Runtime & Memory Specification
+4. IR & Code Generation Specification
+5. Host ABI & FFI Specification
+6. Documentation Generation Specification
 
-## 目的
+## Purpose
 
-本セットは次の最小契約を定義する。
+This set defines the following minimum contracts:
 
-- 決定的なドメイン挙動
-- Rust 優先インタプリタ/VM 実装
-- 安定したホスト連携と仕様書生成
+- Deterministic domain behavior
+- Rust-first interpreter / VM implementation
+- Stable host integration and documentation generation
 
-## 実装クレート（MVP 推奨）
+## Implementation Crates (MVP Recommended)
 
-- `cino-syntax`: 構文木とパーサ
-- `cino-sema`: 型/純粋性/網羅性検査
-- `cino-ir`: 型付きIRと lowering
-- `cino-vm`: バイトコード実行器（MVPブートストラップとしてIR直接実行器を含む）
-- `cino-codec`: CBOR シリアライズ/デシリアライズ
-- `cino-runtime`: 実行APIと状態ハンドル管理
-- `cino-ffi-c`: C ABI 公開層
-- `cino-cli`: 開発者向けCLI
+- `cino-syntax`: Syntax tree and parser
+- `cino-sema`: Type / purity / exhaustiveness checking
+- `cino-ir`: Typed IR and lowering
+- `cino-vm`: Bytecode executor (includes a direct IR evaluator as an MVP bootstrap)
+- `cino-codec`: CBOR serialization / deserialization
+- `cino-runtime`: Execution API and state handle management
+- `cino-ffi-c`: C ABI public layer
+- `cino-cli`: Developer-facing CLI

@@ -1,75 +1,75 @@
-# cino 実行系・メモリ仕様（Rust, ドラフト）
+# cino Runtime & Memory Specification (Rust, Draft)
 
-## 1. 対象範囲
+## 1. Scope
 
-本書は Rust 製インタプリタ/VM の実行時挙動を定義する。
+This document defines the runtime behavior of the Rust-based interpreter / VM.
 
-目標:
+Goals:
 
-- 決定性
-- 堅牢なメモリ安全
-- 単純なホスト統合
+- Determinism
+- Robust memory safety
+- Simple host integration
 
-## 2. 実行単位
+## 2. Execution Units
 
-`update` と `query` は独立した実行単位として扱う。
+`update` and `query` are treated as independent execution units.
 
-- 入力は不変
-- 呼び出し後に残るのは出力到達可能データのみ
-- 暴走防止のためステップ上限を設ける
+- Input is immutable.
+- Only output-reachable data survives after a call.
+- A step limit is enforced to prevent runaway execution.
 
-## 3. メモリモデル
+## 3. Memory Model
 
-MVP では呼び出し単位リージョン方式を採用する。
+MVP adopts a per-call region approach.
 
-- 呼び出しごとに一時アリーナを確保
-- `update` / `query` 終了時に一時領域を破棄
-- 出力から到達可能な値だけ生存
+- A temporary arena is allocated for each call.
+- The temporary region is discarded when `update` / `query` returns.
+- Only values reachable from the output survive.
 
-生存対象:
+Surviving data:
 
-- `update`: 返却 `State` と `List<Action>`
-- `query`: 返却 `Result`
+- `update`: the returned `State` and `List<Action>`
+- `query`: the returned `Result`
 
-## 4. 永続状態
+## 4. Persistent State
 
-`State` は不変であり、内部共有（永続データ構造）を許可する。
-ホストからは不透明ハンドルとして扱う。
+`State` is immutable and may use internal sharing (persistent data structures).
+The host treats it as an opaque handle.
 
-## 5. 決定的実行ルール
+## 5. Deterministic Execution Rules
 
-- 壁時計へ依存しない
-- 乱数へ依存しない
-- 評価中にホストコールバックしない
-- コレクション走査順を仕様で固定する
+- No dependency on wall-clock time.
+- No dependency on random numbers.
+- No host callbacks during evaluation.
+- Collection traversal order is fixed by specification.
 
-## 6. エラー挙動
+## 6. Error Behavior
 
-実行時失敗は明示的エラー値で返す。
-FFI境界を越える panic は禁止する。
-内部 panic は構造化エラーに変換する。
+Runtime failures are returned as explicit error values.
+Panics across the FFI boundary are prohibited.
+Internal panics are converted to structured errors.
 
-## 7. リソース制限
+## 7. Resource Limits
 
-次の上限を設定可能にする。
+The following limits must be configurable:
 
-- 最大実行ステップ数
-- 呼び出し当たり最大メモリ使用量
-- 最大再帰深さ（または同等のスタック予算）
+- Maximum execution step count
+- Maximum memory usage per call
+- Maximum recursion depth (or equivalent stack budget)
 
-上限到達時は trap ではなく構造化エラーを返す。
+When a limit is reached, a structured error is returned rather than a trap.
 
-## 8. 並行性
+## 8. Concurrency
 
-MVP ランタイム本体は単一スレッドでよい。
-並行実行はホスト側で状態ハンドル単位に管理する。
-共有可変グローバル状態は禁止する。
+The MVP runtime itself may be single-threaded.
+Concurrent execution is managed by the host on a per-state-handle basis.
+Shared mutable global state is prohibited.
 
-## 9. クレート責務境界（実行系）
+## 9. Crate Responsibility Boundaries (Execution Layer)
 
-実行系は少なくとも次の2層に分離する。
+The execution layer is separated into at least two layers:
 
-- `cino-vm`: バイトコード実行器（およびMVPブートストラップとしての型付きIR直接実行器）、命令意味、ステップ制限、呼び出し単位メモリ管理
-- `cino-runtime`: `update/query` 公開API、`State` ハンドル管理、ホスト向け実行コンテキスト
+- `cino-vm`: Bytecode executor (and, as an MVP bootstrap, a direct typed-IR evaluator), instruction semantics, step limiting, per-call memory management.
+- `cino-runtime`: Public API for `update/query`, `State` handle management, host-facing execution context.
 
-`cino-runtime` はホスト統合境界であり、`cino-vm` の内部表現を直接露出しない。
+`cino-runtime` is the host integration boundary and must not directly expose the internal representations of `cino-vm`.

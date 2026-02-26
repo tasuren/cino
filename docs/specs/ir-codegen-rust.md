@@ -1,125 +1,125 @@
-# cino IR・コード生成仕様（Rust 優先, ドラフト）
+# cino IR & Code Generation Specification (Rust-first, Draft)
 
-## 1. 対象範囲
+## 1. Scope
 
-本書はコンパイル処理系を定義する。
+This document defines the compilation pipeline.
 
-- パーサAST
-- 検証済みIR
-- Rust VM 向けバイトコード（主経路）
-- 任意の Rust ソース生成（副経路）
+- Parser AST
+- Validated IR
+- Bytecode for the Rust VM (primary path)
+- Optional Rust source generation (secondary path)
 
-## 2. パイプライン
+## 2. Pipeline
 
-1. ソースを AST に構文解析
-2. 名前解決とシンボル表構築
-3. 型/純粋性/網羅性/クロージャ制約の検査
-4. 型付き IR へ lower
-5. 型付き IR からバイトコード生成
+1. Parse source into AST
+2. Name resolution and symbol table construction
+3. Type / purity / exhaustiveness / closure constraint checking
+4. Lower to typed IR
+5. Generate bytecode from typed IR
 
-任意段階でエラーがあればコンパイル失敗とする。
+If an error occurs at any stage, compilation fails.
 
-## 3. AST 要件
+## 3. AST Requirements
 
-AST ノードは次を保持する。
+AST nodes must hold the following:
 
-- ソース位置（`file`, `line`, `column`）
-- 仕様書生成用メタデータ（ja/en 名称、説明、制約）
-- 型情報スロット（後段で確定）
+- Source location (`file`, `line`, `column`)
+- Metadata for documentation generation (ja/en names, description, constraints)
+- Type information slot (resolved in later stages)
 
-## 4. 型付き IR 要件
+## 4. Typed IR Requirements
 
-IR は以下を満たす。
+The IR must satisfy the following:
 
-- 糖衣構文を除去した明示表現
-- 完全型付け済み
-- 純粋性検査済み
-- 評価順が決定的
+- Explicit representation with all syntactic sugar eliminated
+- Fully typed
+- Purity-checked
+- Evaluation order is deterministic
 
-最小命令要素:
+Minimum instruction elements:
 
-- 定数
-- 変数束縛/参照
-- enum/record 構築
-- match 分岐
-- list/map 操作
-- 関数呼び出し
-- tuple/result 返却
+- Constants
+- Variable binding / reference
+- Enum / record construction
+- Match branching
+- List / map operations
+- Function calls
+- Tuple / result returns
 
-## 5. バイトコード VM（主経路）
+## 5. Bytecode VM (Primary Path)
 
-MVP の正準実行形式はバイトコードとする。
+The canonical execution format for MVP is bytecode.
 
-- MVP の正準抽象機械は**スタック方式**とする
-- 命令意味は決定的であること
-- 実行時 trap は構造化エラーに変換すること
+- The canonical abstract machine for MVP uses a **stack-based** design.
+- Instruction semantics must be deterministic.
+- Runtime traps must be converted to structured errors.
 
-### 5.0 MVP ブートストラップ（暫定）
+### 5.0 MVP Bootstrap (Provisional)
 
-初期実装段階では、正準経路（IR -> バイトコード -> VM）に加えて、
-`cino-vm` が**型付き IR を直接評価する実行器**を提供してよい。
+During the initial implementation phase, in addition to the canonical path (IR -> bytecode -> VM),
+`cino-vm` may provide an **evaluator that directly executes typed IR**.
 
-- 許可範囲は MVP の最小式（`LocalRef` / `Int` / `Bool` / `Tuple` / `List` / `Record` / `Binary` / `Call` / `Let` / `Match`）
-- `Match` のアームパターンは `Wildcard` / `Binding` / `Variant` を許可する
-- `update/query` の公開契約、決定性、上限超過時エラー契約はバイトコード実行と同一
-- panic/trap は構造化エラーに変換する
-- 将来バイトコード経路が安定した時点で、IR直接実行器は開発用/検証用へ縮退してよい
+- Permitted scope covers the minimum MVP expressions: `LocalRef` / `Int` / `Bool` / `Tuple` / `List` / `Record` / `Binary` / `Call` / `Let` / `Match`
+- `Match` arm patterns may be `Wildcard` / `Binding` / `Variant`
+- The public contract, determinism, and over-limit error contract for `update/query` are identical to bytecode execution.
+- Panics / traps must be converted to structured errors.
+- Once the bytecode path is stable, the direct IR evaluator may be demoted to a development / validation tool.
 
-### 5.1 抽象機械状態
+### 5.1 Abstract Machine State
 
-実行状態は次の組で定義する。
+Execution state is defined by the following tuple:
 
-- `pc`: 次に実行する命令位置
-- `stack`: 値スタック（LIFO）
-- `locals`: 現在フレームのローカル配列
-- `call_stack`: 呼び出しフレーム列（`return_pc`, `locals`, `function_id`）
-- `budget`: 残り実行ステップ予算
+- `pc`: Position of the next instruction to execute
+- `stack`: Value stack (LIFO)
+- `locals`: Local variable array for the current frame
+- `call_stack`: Call frame sequence (`return_pc`, `locals`, `function_id`)
+- `budget`: Remaining execution step budget
 
-1 命令実行ごとに `budget` を 1 減算し、0 到達時は `E-RUNTIME-STEP-LIMIT` を返す。
+`budget` is decremented by 1 for each instruction executed; reaching 0 returns `E-RUNTIME-STEP-LIMIT`.
 
-### 5.2 MVP 命令セット
+### 5.2 MVP Instruction Set
 
-命令は opcode と固定長/可変長オペランドで表現する。以下が MVP 最小集合。
+Instructions are represented by an opcode and fixed-length / variable-length operands. The following is the minimum MVP set.
 
-| 命令 | 入力（前提） | 出力（成功時） | 失敗条件 |
+| Instruction | Precondition | Output (on success) | Failure condition |
 | --- | --- | --- | --- |
-| `CONST k` | - | `stack.push(const_pool[k])` | `k` 範囲外 (`E-BC-INVALID-CONST`) |
-| `LOAD_LOCAL i` | `locals[i]` が存在 | `stack.push(locals[i])` | `i` 範囲外 (`E-BC-INVALID-LOCAL`) |
-| `STORE_LOCAL i` | `stack` 先頭に値 `v` | `locals[i] = v` | `stack` 空 / `i` 範囲外 |
-| `MAKE_RECORD type_id, n` | `stack` に n 個のフィールド値 | `Record(type_id, fields)` を push | `n` 不正 / 型不一致 |
-| `MAKE_ENUM tag_id, n` | `stack` に n 個の payload 値 | `Enum(tag_id, payload)` を push | `tag_id` 不正 / arity 不一致 |
-| `LIST_NEW n` | `stack` に n 個の要素値 | `List` を push | `n` 不正 |
-| `MAP_NEW n` | `stack` に `2n` 個（`k1,v1,...`） | `Map` を push | キー比較不能 / 重複キー / `n` 不正 |
-| `GET_FIELD field_idx` | `stack` 先頭が record | フィールド値を push | 非 record / 範囲外 |
-| `JUMP target` | - | `pc = target` | `target` 範囲外 (`E-BC-INVALID-JUMP`) |
-| `JUMP_IF_FALSE target` | `stack` 先頭が `Bool` | 偽なら `pc = target` | 非 `Bool` / `target` 範囲外 |
-| `MATCH_TAG {tag->target}` | `stack` 先頭が enum | 対応分岐へ `pc` 更新 | 非 enum / 未定義 tag |
-| `CALL fn_id, argc` | 引数 `argc` 個が `stack` 先頭にある | 新フレームを push し呼び出し先へ遷移 | `fn_id` 不正 / arity 不一致 / 再帰上限超過 |
-| `RETURN` | `stack` 先頭に戻り値 | 呼び出し元へ復帰し戻り値を push | フレーム不整合 / 空スタック |
-| `TUPLE2` | `stack` 先頭に 2 値 | `(a, b)` を push | スタック不足 |
-| `RESULT_OK` | `stack` 先頭に値 `v` | `Result::Ok(v)` を push | スタック不足 |
-| `RESULT_ERR` | `stack` 先頭に値 `e` | `Result::Err(e)` を push | スタック不足 |
+| `CONST k` | - | `stack.push(const_pool[k])` | `k` out of range (`E-BC-INVALID-CONST`) |
+| `LOAD_LOCAL i` | `locals[i]` exists | `stack.push(locals[i])` | `i` out of range (`E-BC-INVALID-LOCAL`) |
+| `STORE_LOCAL i` | Value `v` at top of `stack` | `locals[i] = v` | `stack` empty / `i` out of range |
+| `MAKE_RECORD type_id, n` | `n` field values on `stack` | Push `Record(type_id, fields)` | `n` invalid / type mismatch |
+| `MAKE_ENUM tag_id, n` | `n` payload values on `stack` | Push `Enum(tag_id, payload)` | `tag_id` invalid / arity mismatch |
+| `LIST_NEW n` | `n` element values on `stack` | Push `List` | `n` invalid |
+| `MAP_NEW n` | `2n` values on `stack` (`k1,v1,...`) | Push `Map` | Non-comparable key / duplicate key / `n` invalid |
+| `GET_FIELD field_idx` | Top of `stack` is a record | Push field value | Not a record / out of range |
+| `JUMP target` | - | `pc = target` | `target` out of range (`E-BC-INVALID-JUMP`) |
+| `JUMP_IF_FALSE target` | Top of `stack` is `Bool` | If false, `pc = target` | Not a `Bool` / `target` out of range |
+| `MATCH_TAG {tag->target}` | Top of `stack` is an enum | Update `pc` to matching branch | Not an enum / undefined tag |
+| `CALL fn_id, argc` | `argc` arguments at top of `stack` | Push new frame and jump to callee | `fn_id` invalid / arity mismatch / recursion limit exceeded |
+| `RETURN` | Return value at top of `stack` | Return to caller and push return value | Frame inconsistency / empty stack |
+| `TUPLE2` | 2 values at top of `stack` | Push `(a, b)` | Stack underflow |
+| `RESULT_OK` | Value `v` at top of `stack` | Push `Result::Ok(v)` | Stack underflow |
+| `RESULT_ERR` | Value `e` at top of `stack` | Push `Result::Err(e)` | Stack underflow |
 
-注記:
+Notes:
 
-- `MAP_NEW` の重複キーは「最初に現れたキーを有効」にせず、**実行時エラー**として失敗させる。
-- `MATCH_TAG` はコンパイル済み分岐表を参照し、線形探索を行わない（実装差による順序差を排除）。
+- Duplicate keys in `MAP_NEW` are **runtime errors** and do not silently use the first key.
+- `MATCH_TAG` references a precompiled branch table and does not perform linear search (eliminates ordering differences due to implementation variance).
 
-### 5.3 決定性ルール
+### 5.3 Determinism Rules
 
-命令列生成と実行は以下を満たさなければならない。
+Instruction generation and execution must satisfy the following:
 
-- 式の評価順は常に**左から右**
-- `record` フィールド評価順はソース定義順
-- `List` 要素評価順はソース記述順
-- `Map` の `key/value` 組はソース記述順で評価し、その順で構築
-- `match` のアーム検査順はソース記述順（ただし実行は `MATCH_TAG` の直達ジャンプ）
-- 関数引数評価順は左から右、`CALL` は評価後に一括でフレームへ束縛
-- VM は実行中にホストコールバックしない（`Action` は値として構築のみ）
+- Expression evaluation order is always **left to right**.
+- `record` field evaluation order follows the source declaration order.
+- `List` element evaluation order follows the source declaration order.
+- `Map` key/value pairs are evaluated in source declaration order and constructed in that order.
+- `match` arm checking order follows the source declaration order (though execution uses direct jumps via `MATCH_TAG`).
+- Function argument evaluation order is left to right; `CALL` binds all arguments to the frame after evaluation.
+- The VM does not call back to the host during execution (`Action` is only constructed as a value).
 
-### 5.4 実行例（主要命令）
+### 5.4 Execution Example (Key Instructions)
 
-入力 cino（概念）:
+Input cino (conceptual):
 
 ```cino
 update(state: S, event: E) -> (S, List<Action>) {
@@ -129,7 +129,7 @@ update(state: S, event: E) -> (S, List<Action>) {
 }
 ```
 
-対応する命令列（概念）:
+Corresponding instruction sequence (conceptual):
 
 ```text
 LOAD_LOCAL 1                 ; event
@@ -146,55 +146,55 @@ TUPLE2
 RETURN
 ```
 
-この例では `MATCH_TAG`, `GET_FIELD`, `MAKE_RECORD`, `LIST_NEW`, `TUPLE2`, `RETURN` の意味が固定される。
+This example fixes the semantics of `MATCH_TAG`, `GET_FIELD`, `MAKE_RECORD`, `LIST_NEW`, `TUPLE2`, and `RETURN`.
 
-## 6. Rust ソース生成（任意）
+## 6. Rust Source Generation (Optional)
 
-Rust コード生成は次用途に限定して提供可能。
+Rust code generation is available only for the following purposes:
 
-- デバッグ
-- 可観測性
-- オフライン検証
+- Debugging
+- Observability
+- Offline verification
 
-正準意味は IR + VM に置き、Rust生成物に依存しない。
+The canonical semantics reside in IR + VM; nothing depends on the generated Rust output.
 
-## 7. 互換性
+## 7. Compatibility
 
-### 7.1 バイトコードヘッダ
+### 7.1 Bytecode Header
 
-全バイトコードは先頭に次ヘッダを持つ。
+Every bytecode file begins with the following header:
 
-- `magic`: `CINOBC`（6 byte）
+- `magic`: `CINOBC` (6 bytes)
 - `major`: u16
 - `minor`: u16
-- `flags`: u16（MVP では 0 固定）
+- `flags`: u16 (fixed to 0 in MVP)
 
-### 7.2 バージョン規則
+### 7.2 Versioning Rules
 
-- `major`: 命令意味・エンコード・検証規則の非互換変更で増加
-- `minor`: 後方互換な命令追加・メタ情報追加で増加
-- `minor` 変更では既存命令の意味を変更してはならない
+- `major`: incremented on breaking changes to instruction semantics, encoding, or validation rules.
+- `minor`: incremented on backward-compatible instruction additions or metadata additions.
+- A `minor` change must not alter the semantics of any existing instruction.
 
-### 7.3 互換性判定
+### 7.3 Compatibility Determination
 
-ランタイムは次の規則で受理/拒否する。
+The runtime accepts or rejects bytecode according to the following rules:
 
-- `magic` 不一致は `E-BC-BAD-MAGIC`
-- `major` 不一致は `E-BC-MAJOR-MISMATCH`
-- `major` 一致かつ `bytecode.minor <= runtime.supported_minor` のときのみ実行可能
-- 上記を満たさない場合、実行開始前に明示エラーで失敗する
+- `magic` mismatch → `E-BC-BAD-MAGIC`
+- `major` mismatch → `E-BC-MAJOR-MISMATCH`
+- Executable only when `major` matches and `bytecode.minor <= runtime.supported_minor`
+- If the above conditions are not met, the runtime fails with an explicit error before execution begins.
 
-### 7.4 非互換変更の例
+### 7.4 Examples of Breaking Changes
 
-次は必ず `major` を上げる。
+The following always require a `major` increment:
 
-- 既存 opcode の意味変更（例: `MAP_NEW` の重複キー規則を変更）
-- オペランド解釈変更（例: `CALL` の引数順を変更）
-- 既存 trap/error コード意味の変更
+- Changing the semantics of an existing opcode (e.g., changing the duplicate key rule for `MAP_NEW`)
+- Changing operand interpretation (e.g., changing argument order for `CALL`)
+- Changing the meaning of an existing trap / error code
 
-## 8. Rust ワークスペース構成（MVP 推奨）
+## 8. Rust Workspace Structure (MVP Recommended)
 
-MVP では Cargo workspace を採用し、責務境界ごとに次のクレートへ分割する。
+MVP adopts a Cargo workspace and splits responsibilities into the following crates:
 
 1. `cino-syntax`
 2. `cino-sema`
@@ -205,12 +205,12 @@ MVP では Cargo workspace を採用し、責務境界ごとに次のクレー�
 7. `cino-ffi-c`
 8. `cino-cli`
 
-初期段階では `cino-syntax` / `cino-sema` / `cino-ir` / `cino-vm` / `cino-cli` を最小セットとし、
-CBOR シリアライズ（`cino-codec`）と FFI（`cino-ffi-c`）は段階的に追加してよい。
+In the initial phase, `cino-syntax` / `cino-sema` / `cino-ir` / `cino-vm` / `cino-cli` form the minimum set;
+CBOR serialization (`cino-codec`) and FFI (`cino-ffi-c`) may be added incrementally.
 
-## 9. クレート依存方向
+## 9. Crate Dependency Direction
 
-依存は次方向を原則とする。
+Dependencies follow these directions as a principle:
 
 - `cino-sema` -> `cino-syntax`
 - `cino-ir` -> `cino-sema`, `cino-syntax`
@@ -220,4 +220,4 @@ CBOR シリアライズ（`cino-codec`）と FFI（`cino-ffi-c`）は段階的�
 - `cino-ffi-c` -> `cino-runtime`, `cino-vm`, `cino-codec`
 - `cino-cli` -> `cino-runtime`, `cino-syntax`, `cino-sema`, `cino-ir`, `cino-vm`, `cino-codec`
 
-循環依存は禁止する。
+Circular dependencies are prohibited.
