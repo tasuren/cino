@@ -7,8 +7,8 @@ use cino_syntax::{
 };
 
 use crate::{
-    validate_program, Diagnostic, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam, IrPattern,
-    IrPatternField, IrPatternKind, IrProgram, IrType, LoweringResult, SourceLoc,
+    Diagnostic, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam, IrPattern, IrPatternField,
+    IrPatternKind, IrProgram, IrType, LoweringResult, SourceLoc, validate_program,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

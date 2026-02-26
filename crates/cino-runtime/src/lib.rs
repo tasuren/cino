@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::{
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
 };
 
@@ -136,8 +136,8 @@ pub fn crate_name() -> &'static str {
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     use cino_vm::{NativeProgram, VmErrorCode, VmValue};

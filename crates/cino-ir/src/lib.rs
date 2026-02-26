@@ -15,11 +15,11 @@ pub fn crate_name() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use cino_syntax::{parse_program, FnKind};
+    use cino_syntax::{FnKind, parse_program};
 
     use crate::{
-        lower_program, validate_program, Diagnostic, IrExpr, IrExprKind, IrFunction, IrParam,
-        IrProgram, IrType, SourceLoc,
+        Diagnostic, IrExpr, IrExprKind, IrFunction, IrParam, IrProgram, IrType, SourceLoc,
+        lower_program, validate_program,
     };
 
     #[test]
@@ -80,10 +80,12 @@ fn bad(x: Int) -> Int {
         let program = parse_program(source).expect("parse");
         let lowered = lower_program(&program);
         assert!(lowered.program.is_none());
-        assert!(lowered
-            .diagnostics
-            .iter()
-            .any(|d| d.code == "E-PURE-002" || d.code == "E-TYPE-002"));
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|d| d.code == "E-PURE-002" || d.code == "E-TYPE-002")
+        );
     }
 
     #[test]
@@ -109,8 +111,10 @@ fn bad(x: Int) -> Int {
 
         let diagnostics = validate_program(&ir);
         assert!(!diagnostics.is_empty());
-        assert!(diagnostics
-            .iter()
-            .any(|d: &Diagnostic| d.code == "E-IR-VAL-001"));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d: &Diagnostic| d.code == "E-IR-VAL-001")
+        );
     }
 }

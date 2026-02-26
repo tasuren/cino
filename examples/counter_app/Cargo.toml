@@ -1,7 +1,7 @@
 [package]
 name    = "counter_app"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 libui = "0.4.0"

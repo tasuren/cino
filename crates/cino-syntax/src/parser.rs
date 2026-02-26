@@ -8,7 +8,7 @@ use crate::{
     error::ParseError,
     lexer::Lexer,
     span::{Position, Span},
-    token::{display_tag, Token, TokenKind, TokenTag},
+    token::{Token, TokenKind, TokenTag, display_tag},
 };
 
 pub fn parse_program(input: &str) -> Result<Program, ParseError> {
@@ -747,7 +747,7 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse_program, ExprKind, FnKind, PatternKind, TopDecl, TypeDeclKind};
+    use crate::{ExprKind, FnKind, PatternKind, TopDecl, TypeDeclKind, parse_program};
 
     #[test]
     fn parse_core_decls_and_match() {

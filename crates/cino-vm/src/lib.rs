@@ -3,7 +3,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
     fmt,
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
 };
 
