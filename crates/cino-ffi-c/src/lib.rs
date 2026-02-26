@@ -1,16 +1,10 @@
 #![allow(non_camel_case_types)]
 
-use std::{
-    collections::BTreeMap,
-    ffi::CString,
-    os::raw::c_char,
-    ptr,
-    sync::Arc,
-};
+use std::{ffi::CString, os::raw::c_char, ptr, sync::Arc};
 
+use cino_codec::{decode_value, encode_value, CodecError};
 use cino_runtime::{Runtime, RuntimeError, RuntimeErrorCode, StateHandle as RuntimeStateHandle};
 use cino_vm::{NativeProgram, VmError, VmErrorCode, VmLimits, VmProgram, VmValue};
-use serde_cbor::Value as CborValue;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,166 +99,28 @@ fn map_runtime_error(error: RuntimeError) -> FfiError {
     FfiError::new(code, error.message)
 }
 
-fn decode_vm_value(bytes: &[u8]) -> Result<VmValue, FfiError> {
-    let cbor = serde_cbor::from_slice::<CborValue>(bytes).map_err(|err| {
-        FfiError::new(
+fn map_codec_error(error: CodecError) -> FfiError {
+    match error {
+        CodecError::InvalidFormat(msg) => {
+            FfiError::new(cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR, msg)
+        }
+        CodecError::Decode(err) => FfiError::new(
             cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
             format!("failed to decode CBOR: {err}"),
-        )
-    })?;
-    vm_value_from_cbor(&cbor)
+        ),
+        CodecError::Encode(err) => FfiError::new(
+            cino_error_code_t::CINO_ERROR_ABI_INTERNAL,
+            format!("failed to encode CBOR: {err}"),
+        ),
+    }
+}
+
+fn decode_vm_value(bytes: &[u8]) -> Result<VmValue, FfiError> {
+    decode_value(bytes).map_err(map_codec_error)
 }
 
 fn encode_vm_value(value: &VmValue) -> Result<Vec<u8>, FfiError> {
-    serde_cbor::to_vec(&cbor_from_vm_value(value)).map_err(|err| {
-        FfiError::new(
-            cino_error_code_t::CINO_ERROR_ABI_INTERNAL,
-            format!("failed to encode CBOR: {err}"),
-        )
-    })
-}
-
-fn vm_value_from_cbor(value: &CborValue) -> Result<VmValue, FfiError> {
-    match value {
-        CborValue::Null => Ok(VmValue::Unit),
-        CborValue::Bool(v) => Ok(VmValue::Bool(*v)),
-        CborValue::Integer(v) => i64::try_from(*v)
-            .map(VmValue::Int)
-            .map_err(|_| {
-                FfiError::new(
-                    cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                    "integer does not fit in i64",
-                )
-            }),
-        CborValue::Text(s) => Ok(VmValue::String(s.clone())),
-        CborValue::Array(items) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                out.push(vm_value_from_cbor(item)?);
-            }
-            Ok(VmValue::List(out))
-        }
-        CborValue::Map(entries) => parse_vm_map(entries),
-        _ => Err(FfiError::new(
-            cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-            "unsupported CBOR type for VmValue",
-        )),
-    }
-}
-
-fn parse_vm_map(entries: &BTreeMap<CborValue, CborValue>) -> Result<VmValue, FfiError> {
-    if entries.len() == 1 {
-        if let Some(tuple_value) = entries.get(&CborValue::Text("$tuple".to_string())) {
-            let CborValue::Array(items) = tuple_value else {
-                return Err(FfiError::new(
-                    cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                    "`$tuple` must be an array",
-                ));
-            };
-            let mut tuple = Vec::with_capacity(items.len());
-            for item in items {
-                tuple.push(vm_value_from_cbor(item)?);
-            }
-            return Ok(VmValue::Tuple(tuple));
-        }
-    }
-
-    if entries.contains_key(&CborValue::Text("$tag".to_string())) {
-        let tag = entries
-            .get(&CborValue::Text("$tag".to_string()))
-            .ok_or_else(|| {
-                FfiError::new(
-                    cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                    "enum map is missing `$tag`",
-                )
-            })?;
-        let fields = entries
-            .get(&CborValue::Text("$fields".to_string()))
-            .ok_or_else(|| {
-                FfiError::new(
-                    cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                    "enum map is missing `$fields`",
-                )
-            })?;
-
-        let CborValue::Text(tag) = tag else {
-            return Err(FfiError::new(
-                cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                "`$tag` must be text",
-            ));
-        };
-        let CborValue::Map(raw_fields) = fields else {
-            return Err(FfiError::new(
-                cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                "`$fields` must be a map",
-            ));
-        };
-
-        let mut mapped = BTreeMap::new();
-        for (key, value) in raw_fields {
-            let CborValue::Text(field_name) = key else {
-                return Err(FfiError::new(
-                    cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                    "enum field key must be text",
-                ));
-            };
-            mapped.insert(field_name.clone(), vm_value_from_cbor(value)?);
-        }
-
-        return Ok(VmValue::Enum {
-            tag: tag.clone(),
-            fields: mapped,
-        });
-    }
-
-    let mut map = BTreeMap::new();
-    for (key, value) in entries {
-        let CborValue::Text(k) = key else {
-            return Err(FfiError::new(
-                cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR,
-                "map key must be text",
-            ));
-        };
-        map.insert(k.clone(), vm_value_from_cbor(value)?);
-    }
-    Ok(VmValue::Map(map))
-}
-
-fn cbor_from_vm_value(value: &VmValue) -> CborValue {
-    match value {
-        VmValue::Unit => CborValue::Null,
-        VmValue::Int(v) => CborValue::Integer((*v).into()),
-        VmValue::Bool(v) => CborValue::Bool(*v),
-        VmValue::String(v) => CborValue::Text(v.clone()),
-        VmValue::List(items) => {
-            CborValue::Array(items.iter().map(cbor_from_vm_value).collect())
-        }
-        VmValue::Tuple(items) => {
-            let mut map = BTreeMap::new();
-            map.insert(
-                CborValue::Text("$tuple".to_string()),
-                CborValue::Array(items.iter().map(cbor_from_vm_value).collect()),
-            );
-            CborValue::Map(map)
-        }
-        VmValue::Map(entries) => {
-            let mut map = BTreeMap::new();
-            for (key, value) in entries {
-                map.insert(CborValue::Text(key.clone()), cbor_from_vm_value(value));
-            }
-            CborValue::Map(map)
-        }
-        VmValue::Enum { tag, fields } => {
-            let mut raw_fields = BTreeMap::new();
-            for (key, value) in fields {
-                raw_fields.insert(CborValue::Text(key.clone()), cbor_from_vm_value(value));
-            }
-            let mut map = BTreeMap::new();
-            map.insert(CborValue::Text("$tag".to_string()), CborValue::Text(tag.clone()));
-            map.insert(CborValue::Text("$fields".to_string()), CborValue::Map(raw_fields));
-            CborValue::Map(map)
-        }
-    }
+    encode_value(value).map_err(map_codec_error)
 }
 
 fn mock_counter_program() -> Arc<dyn VmProgram> {
@@ -343,10 +199,7 @@ unsafe fn require_bytes_ptr<'a>(
     unsafe { Ok(std::slice::from_raw_parts(data, len)) }
 }
 
-fn run_ffi<T, F>(
-    out_error: *mut *mut cino_error_t,
-    run: F,
-) -> (cino_status_t, Option<T>)
+fn run_ffi<T, F>(out_error: *mut *mut cino_error_t, run: F) -> (cino_status_t, Option<T>)
 where
     F: FnOnce() -> Result<T, FfiError>,
 {
@@ -656,10 +509,13 @@ mod tests {
 
     #[test]
     fn cbor_roundtrip_for_tuple_and_enum() {
-        let value = VmValue::Tuple(vec![VmValue::Int(1), VmValue::Enum {
-            tag: "Event".to_string(),
-            fields: BTreeMap::from([("id".to_string(), VmValue::Int(42))]),
-        }]);
+        let value = VmValue::Tuple(vec![
+            VmValue::Int(1),
+            VmValue::Enum {
+                tag: "Event".to_string(),
+                fields: BTreeMap::from([("id".to_string(), VmValue::Int(42))]),
+            },
+        ]);
 
         let encoded = encode_vm_value(&value).expect("must encode");
         let decoded = decode_vm_value(&encoded).expect("must decode");
@@ -670,12 +526,7 @@ mod tests {
     fn value_new_from_cbor_rejects_invalid_bytes() {
         let mut out_value = ptr::null_mut();
         let mut out_error = ptr::null_mut();
-        let status = cino_value_new_from_cbor(
-            [0xff].as_ptr(),
-            1,
-            &mut out_value,
-            &mut out_error,
-        );
+        let status = cino_value_new_from_cbor([0xff].as_ptr(), 1, &mut out_value, &mut out_error);
         assert_eq!(status as u32, cino_status_t::CINO_STATUS_ERR as u32);
         assert!(!out_error.is_null());
         assert_eq!(
@@ -716,7 +567,14 @@ mod tests {
         let mut next_state = ptr::null_mut();
         let mut actions = ptr::null_mut();
         assert_eq!(
-            cino_update(program, state, event, &mut next_state, &mut actions, &mut error) as u32,
+            cino_update(
+                program,
+                state,
+                event,
+                &mut next_state,
+                &mut actions,
+                &mut error
+            ) as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
 
@@ -738,7 +596,10 @@ mod tests {
             cino_value_bytes(result, &mut result_ptr, &mut result_len, &mut error) as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
-        assert_eq!(unsafe { std::slice::from_raw_parts(result_ptr, result_len) }, [0x11]);
+        assert_eq!(
+            unsafe { std::slice::from_raw_parts(result_ptr, result_len) },
+            [0x11]
+        );
 
         let mut actions_ptr: *const u8 = ptr::null();
         let mut actions_len = 0usize;

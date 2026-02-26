@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 cino-runtime = { path = "../cino-runtime" }
 cino-vm = { path = "../cino-vm" }
-serde_cbor = "0.11"
+cino-codec = { path = "../cino-codec" }
 
 [build-dependencies]
 cc = "1"
