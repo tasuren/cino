@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "crates/cino-codec",
   "crates/cino-syntax",
   "crates/cino-sema",
   "crates/cino-ir",

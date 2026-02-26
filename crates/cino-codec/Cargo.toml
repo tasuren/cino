@@ -1,0 +1,10 @@
+[package]
+name = "cino-codec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cino-vm = { path = "../cino-vm" }
+ciborium = "0.2"
+thiserror = "2"
