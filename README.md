@@ -1,6 +1,10 @@
 # cino
 
-cino is a deterministic domain DSL runtime and toolchain.
+cino is an experimental DSL and runtime for writing domain logic that is structurally incapable of side effects.
+
+The core idea is a hard boundary between domain logic and the outside world. In cino, I/O, time, randomness, and external calls are not merely discouraged — they are forbidden at the language level. Domain behavior is expressed solely through pure `update` (state transition) and `query` (state read) functions, while any interaction with the outside world is represented as an `Action` value returned to the host. This constraint is enforced by the compiler, not by convention.
+
+The goal is to explore how strictly enforcing this boundary affects the testability, portability, and long-term maintainability of domain logic.
 
 ## Cargo workspace (MVP)
 
