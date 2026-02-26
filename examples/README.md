@@ -1,64 +1,59 @@
 # cino examples
 
-## 小さいサンプル（`.cino` 単体）
+## Standalone `.cino` examples
 
-| ファイル | 内容 | ポイント |
+| File | Description | Key points |
 |---|---|---|
-| `counter.cino` | カウンター（増減・リセット） | State/Event/update/query の最小構成 |
-| `traffic_light.cino` | 信号機（Red→Green→Yellow→Red…） | enum を状態として使う状態機械 |
-| `todo_list.cino` | 未完了タスク数管理 | タスク完了時に `Action` を生成するデモ |
+| `counter.cino` | Counter (increment, decrement, reset) | Minimal State / Event / update / query setup |
+| `traffic_light.cino` | Traffic light (Red → Green → Yellow → Red …) | State machine using an enum as state |
+| `todo_list.cino` | Incomplete task count management | Demo of generating an `Action` on task completion |
+| `shopping_cart.cino` | Shopping cart (total management, checkout) | Covers user-defined `fn`, multiple Actions, and multiple Events |
 
-## 大きめのサンプル
-
-| ファイル | 内容 | ポイント |
-|---|---|---|
-| `shopping_cart.cino` | ショッピングカート（合計管理・注文） | ユーザー定義関数 `fn`、複数 Action、複数 Event を網羅 |
-
-## Rust インテグレーションサンプル
+## Rust Integration Example
 
 ### `counter_app/`
 
-`counter.cino` を cino-runtime 経由でロードし、libui で GUI を表示するカウンターアプリです。
+A counter app that loads `counter.cino` via `cino-runtime` and displays a GUI using libui.
 
 ```
 examples/counter_app/
-  Cargo.toml    # libui + cino クレートの依存
-  counter.cino  # cino ソース（バイナリに埋め込まれる）
+  Cargo.toml    # dependencies for libui + cino crates
+  counter.cino  # cino source (embedded in the binary)
   src/
-    main.rs     # Rust アプリ本体
+    main.rs     # Rust application entry point
 ```
 
-#### 必要な環境
+#### Requirements
 
-| OS | 依存 |
+| OS | Dependency |
 |---|---|
-| macOS | Xcode Command Line Tools（Cocoa が自動利用） |
-| Linux | GTK3（例: `sudo apt install libgtk-3-dev`） |
-| Windows | Win32 API（自動） |
+| macOS | Xcode Command Line Tools (Cocoa is used automatically) |
+| Linux | GTK3 (e.g. `sudo apt install libgtk-3-dev`) |
+| Windows | Win32 API (automatic) |
 
-#### 実行
+#### Run
 
 ```sh
 cd examples/counter_app
 cargo run
 ```
 
-## cino CLI での動作確認
+## Verification with the cino CLI
 
 ```sh
-# ビルド
+# Build
 cargo build -p cino-cli --bin cino
 
-# check
+# Check
 ./target/debug/cino check --file examples/counter.cino
 
-# update 実行
+# Run update
 ./target/debug/cino run update \
   --file examples/counter.cino \
   --state 0 \
   --event '{"$tag":"Increment","$fields":{}}'
 
-# query 実行
+# Run query
 ./target/debug/cino run query \
   --file examples/counter.cino \
   --state 5 \
