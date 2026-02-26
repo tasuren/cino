@@ -348,7 +348,8 @@ impl Lowerer {
                 })
             }
             ExprKind::Record { name, fields } => {
-                let (ty_name, expected_fields) = if let Some(type_info) = self.type_table.get(name) {
+                let (ty_name, expected_fields) = if let Some(type_info) = self.type_table.get(name)
+                {
                     (name.clone(), type_info.fields.clone())
                 } else if let Some(type_name) = self.variant_to_type.get(name) {
                     let type_info = self.type_table.get(type_name).unwrap();
@@ -368,7 +369,8 @@ impl Lowerer {
                 let mut lowered_fields = Vec::new();
                 for f in fields {
                     let value = self.lower_expr(&f.value, env)?;
-                    if let Some((_, expected_ty)) = expected_fields.iter().find(|(n, _)| n == &f.name)
+                    if let Some((_, expected_ty)) =
+                        expected_fields.iter().find(|(n, _)| n == &f.name)
                     {
                         let type_info = self.type_table.get(&ty_name).unwrap();
                         let is_generic_param = matches!(expected_ty, IrType::Named { name: n, args } if args.is_empty() && type_info.generics.contains(n));
@@ -693,26 +695,21 @@ impl Lowerer {
         }
 
         match (a, b) {
-            (
-                IrType::Named {
-                    name: na,
-                    args: aa,
-                },
-                IrType::Named {
-                    name: nb,
-                    args: ab,
-                },
-            ) => {
+            (IrType::Named { name: na, args: aa }, IrType::Named { name: nb, args: ab }) => {
                 if na != nb || aa.len() != ab.len() {
                     return false;
                 }
-                aa.iter().zip(ab.iter()).all(|(l, r)| self.ty_compatible(l, r))
+                aa.iter()
+                    .zip(ab.iter())
+                    .all(|(l, r)| self.ty_compatible(l, r))
             }
             (IrType::Tuple(la), IrType::Tuple(lb)) => {
                 if la.len() != lb.len() {
                     return false;
                 }
-                la.iter().zip(lb.iter()).all(|(l, r)| self.ty_compatible(l, r))
+                la.iter()
+                    .zip(lb.iter())
+                    .all(|(l, r)| self.ty_compatible(l, r))
             }
             _ => false,
         }

@@ -703,8 +703,7 @@ impl Parser {
     }
 
     fn looks_like_record_expr(&self) -> bool {
-        matches!(self.peek_tag(1), TokenTag::RBrace)
-            || matches!(self.peek_tag(2), TokenTag::Colon)
+        matches!(self.peek_tag(1), TokenTag::RBrace) || matches!(self.peek_tag(2), TokenTag::Colon)
     }
 
     fn peek_tag(&self, offset: usize) -> TokenTag {

@@ -139,30 +139,17 @@ impl IrType {
         }
 
         match (self, other) {
-            (
-                IrType::Named {
-                    name: na,
-                    args: aa,
-                },
-                IrType::Named {
-                    name: nb,
-                    args: ab,
-                },
-            ) => {
+            (IrType::Named { name: na, args: aa }, IrType::Named { name: nb, args: ab }) => {
                 if na != nb || aa.len() != ab.len() {
                     return false;
                 }
-                aa.iter()
-                    .zip(ab.iter())
-                    .all(|(l, r)| l.is_compatible(r))
+                aa.iter().zip(ab.iter()).all(|(l, r)| l.is_compatible(r))
             }
             (IrType::Tuple(la), IrType::Tuple(lb)) => {
                 if la.len() != lb.len() {
                     return false;
                 }
-                la.iter()
-                    .zip(lb.iter())
-                    .all(|(l, r)| l.is_compatible(r))
+                la.iter().zip(lb.iter()).all(|(l, r)| l.is_compatible(r))
             }
             _ => false,
         }

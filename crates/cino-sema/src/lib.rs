@@ -364,7 +364,10 @@ impl Checker {
                     } else if !self.ty_compatible(&item_ty, &ty) {
                         self.emit(
                             "E-TYPE-001",
-                            format!("list items must have same type, found {:?} and {:?}", item_ty, ty),
+                            format!(
+                                "list items must have same type, found {:?} and {:?}",
+                                item_ty, ty
+                            ),
                             item.span.start.line,
                             item.span.start.column,
                         );
@@ -376,7 +379,8 @@ impl Checker {
                 }
             }
             ExprKind::Record { name, fields } => {
-                let (ty_name, expected_fields) = if let Some(type_info) = self.type_table.get(name) {
+                let (ty_name, expected_fields) = if let Some(type_info) = self.type_table.get(name)
+                {
                     (name.clone(), type_info.fields.clone())
                 } else if let Some(type_name) = self.variant_to_type.get(name) {
                     let type_info = self.type_table.get(type_name).unwrap();
@@ -396,7 +400,8 @@ impl Checker {
 
                 for f in fields {
                     let val_ty = self.infer_expr(&f.value, env, fn_kind);
-                    if let Some((_, expected_ty)) = expected_fields.iter().find(|(n, _)| n == &f.name)
+                    if let Some((_, expected_ty)) =
+                        expected_fields.iter().find(|(n, _)| n == &f.name)
                     {
                         let type_info = self.type_table.get(&ty_name).unwrap();
                         let is_generic_param = matches!(expected_ty, Ty::Named { name: n, args } if args.is_empty() && type_info.generics.contains(n));
@@ -733,26 +738,21 @@ impl Checker {
         }
 
         match (a, b) {
-            (
-                Ty::Named {
-                    name: na,
-                    args: aa,
-                },
-                Ty::Named {
-                    name: nb,
-                    args: ab,
-                },
-            ) => {
+            (Ty::Named { name: na, args: aa }, Ty::Named { name: nb, args: ab }) => {
                 if na != nb || aa.len() != ab.len() {
                     return false;
                 }
-                aa.iter().zip(ab.iter()).all(|(l, r)| self.ty_compatible(l, r))
+                aa.iter()
+                    .zip(ab.iter())
+                    .all(|(l, r)| self.ty_compatible(l, r))
             }
             (Ty::Tuple(la), Ty::Tuple(lb)) => {
                 if la.len() != lb.len() {
                     return false;
                 }
-                la.iter().zip(lb.iter()).all(|(l, r)| self.ty_compatible(l, r))
+                la.iter()
+                    .zip(lb.iter())
+                    .all(|(l, r)| self.ty_compatible(l, r))
             }
             _ => false,
         }
