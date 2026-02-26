@@ -1,0 +1,30 @@
+/// counter.cino — counter_app が読み込む cino ソース（examples/counter.cino と同内容）
+
+enum Action =
+  | NoOp
+
+enum Result<T, E> =
+  | Ok  { v: T }
+  | Err { e: E }
+
+event CounterEvent =
+  | Increment
+  | Decrement
+  | Reset
+
+query CounterQuery =
+  | GetCount
+
+update(count: Int, event: CounterEvent) -> (Int, List<Action>) {
+  match event {
+    Increment => (count + 1, [])
+    Decrement => (count - 1, [])
+    Reset     => (0, [])
+  }
+}
+
+query(count: Int, q: CounterQuery) -> Result<Int, Int> {
+  match q {
+    GetCount => Ok { v: count }
+  }
+}

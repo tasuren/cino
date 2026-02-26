@@ -1,0 +1,38 @@
+/// TODOリスト — Action 生成サンプル
+///
+/// State   : Int (未完了タスク数)
+/// Event   : AddTask / CompleteTask / Clear
+/// Query   : PendingCount
+/// Action  : TaskCompleted（タスク完了時にホストへ通知する副作用要求）
+///
+/// ポイント: ドメインコードは副作用を直接実行せず、
+///           Action を返してホスト側に実行を委ねる。
+
+enum Action =
+  | TaskCompleted
+
+enum Result<T, E> =
+  | Ok  { v: T }
+  | Err { e: E }
+
+event TodoEvent =
+  | AddTask
+  | CompleteTask
+  | Clear
+
+query TodoQuery =
+  | PendingCount
+
+update(pending: Int, event: TodoEvent) -> (Int, List<Action>) {
+  match event {
+    AddTask      => (pending + 1, [])
+    CompleteTask => (pending - 1, [TaskCompleted {}])
+    Clear        => (0, [])
+  }
+}
+
+query(pending: Int, q: TodoQuery) -> Result<Int, Int> {
+  match q {
+    PendingCount => Ok { v: pending }
+  }
+}

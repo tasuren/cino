@@ -8,6 +8,7 @@ members = [
   "crates/cino-runtime",
   "crates/cino-ffi-c",
   "crates/cino-cli",
+  "examples/counter_app",
 ]
 resolver = "2"
 

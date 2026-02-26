@@ -19,21 +19,25 @@ The `cino` CLI provides tools for developing and verifying cino programs.
 
 ### Check syntax and static semantics
 ```bash
-cino check --file sample.cino
+cino check --file examples/counter.cino
 ```
 
 ### Run update or query
 ```bash
-# Run update
-cino run update --file sample.cino --state '0' --event '{"$tag": "Add", "$fields": {"delta": 5}}'
+# カウントを 0 から Increment
+cino run update --file examples/counter.cino \
+  --state '0' \
+  --event '{"$tag": "Increment", "$fields": {}}'
 
-# Run query
-cino run query --file sample.cino --state '5' --query '{"$tag": "Get", "$fields": {}}'
+# カウント 5 の状態から GetCount クエリ
+cino run query --file examples/counter.cino \
+  --state '5' \
+  --query '{"$tag": "GetCount", "$fields": {}}'
 ```
 
 ### Generate documentation
 ```bash
-cino docgen --file sample.cino --out ./docs
+cino docgen --file examples/counter.cino --out ./docs
 ```
 
 ## Dependency direction

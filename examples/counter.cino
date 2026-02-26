@@ -1,0 +1,35 @@
+/// カウンター — cino 最小サンプル
+///
+/// State   : Int (カウント値)
+/// Event   : Increment / Decrement / Reset
+/// Query   : GetCount
+/// Action  : なし（このサンプルでは副作用不要）
+
+enum Action =
+  | NoOp
+
+enum Result<T, E> =
+  | Ok  { v: T }
+  | Err { e: E }
+
+event CounterEvent =
+  | Increment
+  | Decrement
+  | Reset
+
+query CounterQuery =
+  | GetCount
+
+update(count: Int, event: CounterEvent) -> (Int, List<Action>) {
+  match event {
+    Increment => (count + 1, [])
+    Decrement => (count - 1, [])
+    Reset     => (0, [])
+  }
+}
+
+query(count: Int, q: CounterQuery) -> Result<Int, Int> {
+  match q {
+    GetCount => Ok { v: count }
+  }
+}

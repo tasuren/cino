@@ -1,0 +1,50 @@
+/// ショッピングカート — 大きめのサンプル
+///
+/// State   : Int (カート合計金額)
+/// Event   : AddItem / RemoveItem / ApplyDiscount / PlaceOrder / Clear
+/// Query   : GetTotal
+/// Action  : OrderPlaced { total } / CartCleared
+///
+/// ポイント:
+///   - ユーザー定義関数 (fn) で割引計算をカプセル化
+///   - PlaceOrder でホストへ「注文確定」アクションを要求
+///   - Clear でホストへ「カートクリア」アクションを要求
+///   - ドメインコードは金額の加減算と Action 生成のみを行う
+
+enum Action =
+  | OrderPlaced { total: Int }
+  | CartCleared
+
+enum Result<T, E> =
+  | Ok  { v: T }
+  | Err { e: E }
+
+event CartEvent =
+  | AddItem       { price: Int }
+  | RemoveItem    { price: Int }
+  | ApplyDiscount { amount: Int }
+  | PlaceOrder
+  | Clear
+
+query CartQuery =
+  | GetTotal
+
+fn apply_discount(total: Int, discount: Int) -> Int {
+  total - discount
+}
+
+update(total: Int, event: CartEvent) -> (Int, List<Action>) {
+  match event {
+    AddItem       { price }  => (total + price, [])
+    RemoveItem    { price }  => (total - price, [])
+    ApplyDiscount { amount } => (apply_discount(total, amount), [])
+    PlaceOrder               => (0, [OrderPlaced { total: total }])
+    Clear                    => (0, [CartCleared {}])
+  }
+}
+
+query(total: Int, q: CartQuery) -> Result<Int, Int> {
+  match q {
+    GetTotal => Ok { v: total }
+  }
+}

@@ -1,0 +1,42 @@
+/// 信号機 — enum 状態機械サンプル
+///
+/// State   : TrafficLight (列挙型をそのまま状態に使う例)
+/// Event   : Tick（一段階進める）
+/// Query   : CurrentLight
+/// Action  : なし
+///
+/// 遷移: Red -> Green -> Yellow -> Red -> ...
+
+enum Action =
+  | NoOp
+
+enum Result<T, E> =
+  | Ok  { v: T }
+  | Err { e: E }
+
+enum TrafficLight =
+  | Red
+  | Yellow
+  | Green
+
+event TrafficEvent =
+  | Tick
+
+query TrafficQuery =
+  | CurrentLight
+
+update(light: TrafficLight, event: TrafficEvent) -> (TrafficLight, List<Action>) {
+  match event {
+    Tick => (match light {
+      Red    => Green {}
+      Green  => Yellow {}
+      Yellow => Red {}
+    }, [])
+  }
+}
+
+query(light: TrafficLight, q: TrafficQuery) -> Result<TrafficLight, Int> {
+  match q {
+    CurrentLight => Ok { v: light }
+  }
+}

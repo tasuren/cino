@@ -1,0 +1,13 @@
+[package]
+name    = "counter_app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libui = "0.4.0"
+
+# ワークスペースの cino クレートをパス依存で参照
+cino-syntax  = { path = "../../crates/cino-syntax" }
+cino-ir      = { path = "../../crates/cino-ir" }
+cino-vm      = { path = "../../crates/cino-vm" }
+cino-runtime = { path = "../../crates/cino-runtime" }
