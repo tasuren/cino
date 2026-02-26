@@ -1,4 +1,5 @@
 #![allow(non_camel_case_types)]
+#![allow(clippy::missing_safety_doc)]
 
 use std::{ffi::CString, os::raw::c_char, ptr, sync::Arc};
 
@@ -218,13 +219,12 @@ where
 }
 
 #[no_mangle]
-pub extern "C" fn cino_program_new_mock_counter(
+pub unsafe extern "C" fn cino_program_new_mock_counter(
     out_program: *mut *mut cino_program_t,
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, program) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let out_program = unsafe { require_mut_ptr(out_program, "out_program") }?;
+        let out_program = require_mut_ptr(out_program, "out_program")?;
         let runtime = Runtime::with_config(
             mock_counter_program(),
             cino_runtime::RuntimeConfig {
@@ -240,30 +240,25 @@ pub extern "C" fn cino_program_new_mock_counter(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_program_destroy(program: *mut cino_program_t) {
+pub unsafe extern "C" fn cino_program_destroy(program: *mut cino_program_t) {
     if program.is_null() {
         return;
     }
     // SAFETY: program was allocated with Box::into_raw in this library.
-    unsafe {
-        drop(Box::from_raw(program));
-    }
+    drop(Box::from_raw(program));
 }
 
 #[no_mangle]
-pub extern "C" fn cino_state_new(
+pub unsafe extern "C" fn cino_state_new(
     program: *const cino_program_t,
     initial_value: *const cino_value_t,
     out_state: *mut *mut cino_state_t,
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, state) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let _program = unsafe { require_ptr(program, "program") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let value = unsafe { require_ptr(initial_value, "initial_value") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_state = unsafe { require_mut_ptr(out_state, "out_state") }?;
+        let _program = require_ptr(program, "program")?;
+        let value = require_ptr(initial_value, "initial_value")?;
+        let out_state = require_mut_ptr(out_state, "out_state")?;
 
         let vm_state = decode_vm_value(&value.bytes)?;
         let state = cino_state_t {
@@ -277,27 +272,23 @@ pub extern "C" fn cino_state_new(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_state_destroy(state: *mut cino_state_t) {
+pub unsafe extern "C" fn cino_state_destroy(state: *mut cino_state_t) {
     if state.is_null() {
         return;
     }
     // SAFETY: state was allocated with Box::into_raw in this library.
-    unsafe {
-        drop(Box::from_raw(state));
-    }
+    drop(Box::from_raw(state));
 }
 
 #[no_mangle]
-pub extern "C" fn cino_state_to_value(
+pub unsafe extern "C" fn cino_state_to_value(
     state: *const cino_state_t,
     out_value: *mut *mut cino_value_t,
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, value) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let state = unsafe { require_ptr(state, "state") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_value = unsafe { require_mut_ptr(out_value, "out_value") }?;
+        let state = require_ptr(state, "state")?;
+        let out_value = require_mut_ptr(out_value, "out_value")?;
         let bytes = encode_vm_value(state.inner.as_value())?;
         *out_value = Box::into_raw(Box::new(cino_value_t { bytes }));
         Ok(())
@@ -307,7 +298,7 @@ pub extern "C" fn cino_state_to_value(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_update(
+pub unsafe extern "C" fn cino_update(
     program: *const cino_program_t,
     state: *const cino_state_t,
     event: *const cino_value_t,
@@ -316,16 +307,11 @@ pub extern "C" fn cino_update(
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, result) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let program = unsafe { require_ptr(program, "program") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let state = unsafe { require_ptr(state, "state") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let event = unsafe { require_ptr(event, "event") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_next_state = unsafe { require_mut_ptr(out_next_state, "out_next_state") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_actions = unsafe { require_mut_ptr(out_actions, "out_actions") }?;
+        let program = require_ptr(program, "program")?;
+        let state = require_ptr(state, "state")?;
+        let event = require_ptr(event, "event")?;
+        let out_next_state = require_mut_ptr(out_next_state, "out_next_state")?;
+        let out_actions = require_mut_ptr(out_actions, "out_actions")?;
 
         let event = decode_vm_value(&event.bytes)?;
         let updated = program
@@ -349,7 +335,7 @@ pub extern "C" fn cino_update(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_query(
+pub unsafe extern "C" fn cino_query(
     program: *const cino_program_t,
     state: *const cino_state_t,
     query: *const cino_value_t,
@@ -357,14 +343,10 @@ pub extern "C" fn cino_query(
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, result) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let program = unsafe { require_ptr(program, "program") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let state = unsafe { require_ptr(state, "state") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let query = unsafe { require_ptr(query, "query") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_result = unsafe { require_mut_ptr(out_result, "out_result") }?;
+        let program = require_ptr(program, "program")?;
+        let state = require_ptr(state, "state")?;
+        let query = require_ptr(query, "query")?;
+        let out_result = require_mut_ptr(out_result, "out_result")?;
 
         let query = decode_vm_value(&query.bytes)?;
         let result = program
@@ -381,17 +363,15 @@ pub extern "C" fn cino_query(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_value_new_from_cbor(
+pub unsafe extern "C" fn cino_value_new_from_cbor(
     data: *const u8,
     len: usize,
     out_value: *mut *mut cino_value_t,
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, value) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let bytes = unsafe { require_bytes_ptr(data, len, "data") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_value = unsafe { require_mut_ptr(out_value, "out_value") }?;
+        let bytes = require_bytes_ptr(data, len, "data")?;
+        let out_value = require_mut_ptr(out_value, "out_value")?;
         let decoded = decode_vm_value(bytes)?;
         let canonical = encode_vm_value(&decoded)?;
         *out_value = Box::into_raw(Box::new(cino_value_t { bytes: canonical }));
@@ -402,30 +382,25 @@ pub extern "C" fn cino_value_new_from_cbor(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_value_destroy(value: *mut cino_value_t) {
+pub unsafe extern "C" fn cino_value_destroy(value: *mut cino_value_t) {
     if value.is_null() {
         return;
     }
     // SAFETY: value was allocated with Box::into_raw in this library.
-    unsafe {
-        drop(Box::from_raw(value));
-    }
+    drop(Box::from_raw(value));
 }
 
 #[no_mangle]
-pub extern "C" fn cino_value_bytes(
+pub unsafe extern "C" fn cino_value_bytes(
     value: *const cino_value_t,
     out_ptr: *mut *const u8,
     out_len: *mut usize,
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, bytes) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let value = unsafe { require_ptr(value, "value") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_ptr = unsafe { require_mut_ptr(out_ptr, "out_ptr") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_len = unsafe { require_mut_ptr(out_len, "out_len") }?;
+        let value = require_ptr(value, "value")?;
+        let out_ptr = require_mut_ptr(out_ptr, "out_ptr")?;
+        let out_len = require_mut_ptr(out_len, "out_len")?;
 
         *out_ptr = value.bytes.as_ptr();
         *out_len = value.bytes.len();
@@ -436,30 +411,25 @@ pub extern "C" fn cino_value_bytes(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_actions_destroy(actions: *mut cino_actions_t) {
+pub unsafe extern "C" fn cino_actions_destroy(actions: *mut cino_actions_t) {
     if actions.is_null() {
         return;
     }
     // SAFETY: actions was allocated with Box::into_raw in this library.
-    unsafe {
-        drop(Box::from_raw(actions));
-    }
+    drop(Box::from_raw(actions));
 }
 
 #[no_mangle]
-pub extern "C" fn cino_actions_bytes(
+pub unsafe extern "C" fn cino_actions_bytes(
     actions: *const cino_actions_t,
     out_ptr: *mut *const u8,
     out_len: *mut usize,
     out_error: *mut *mut cino_error_t,
 ) -> cino_status_t {
     let (status, bytes) = run_ffi(out_error, || {
-        // SAFETY: pointer validation is handled in helper.
-        let actions = unsafe { require_ptr(actions, "actions") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_ptr = unsafe { require_mut_ptr(out_ptr, "out_ptr") }?;
-        // SAFETY: pointer validation is handled in helper.
-        let out_len = unsafe { require_mut_ptr(out_len, "out_len") }?;
+        let actions = require_ptr(actions, "actions")?;
+        let out_ptr = require_mut_ptr(out_ptr, "out_ptr")?;
+        let out_len = require_mut_ptr(out_len, "out_len")?;
 
         *out_ptr = actions.bytes.as_ptr();
         *out_len = actions.bytes.len();
@@ -470,36 +440,35 @@ pub extern "C" fn cino_actions_bytes(
 }
 
 #[no_mangle]
-pub extern "C" fn cino_error_destroy(error: *mut cino_error_t) {
+pub unsafe extern "C" fn cino_error_destroy(error: *mut cino_error_t) {
     if error.is_null() {
         return;
     }
     // SAFETY: error was allocated with Box::into_raw in this library.
-    unsafe {
-        drop(Box::from_raw(error));
-    }
+    drop(Box::from_raw(error));
 }
 
 #[no_mangle]
-pub extern "C" fn cino_error_code(error: *const cino_error_t) -> cino_error_code_t {
+pub unsafe extern "C" fn cino_error_code(error: *const cino_error_t) -> cino_error_code_t {
     if error.is_null() {
         return cino_error_code_t::CINO_ERROR_ABI_INVALID_HANDLE;
     }
     // SAFETY: error is checked for null and points to a valid handle by caller contract.
-    unsafe { (*error).code }
+    (*error).code
 }
 
 #[no_mangle]
-pub extern "C" fn cino_error_message(error: *const cino_error_t) -> *const c_char {
+pub unsafe extern "C" fn cino_error_message(error: *const cino_error_t) -> *const c_char {
     if error.is_null() {
         return ptr::null();
     }
     // SAFETY: error is checked for null and points to a valid handle by caller contract.
-    unsafe { (*error).message.as_ptr() }
+    (*error).message.as_ptr()
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use super::*;
 
     #[link(name = "cino_ffi_integration", kind = "static")]
@@ -526,14 +495,16 @@ mod tests {
     fn value_new_from_cbor_rejects_invalid_bytes() {
         let mut out_value = ptr::null_mut();
         let mut out_error = ptr::null_mut();
-        let status = cino_value_new_from_cbor([0xff].as_ptr(), 1, &mut out_value, &mut out_error);
+        let status = unsafe {
+            cino_value_new_from_cbor([0xff].as_ptr(), 1, &mut out_value, &mut out_error)
+        };
         assert_eq!(status as u32, cino_status_t::CINO_STATUS_ERR as u32);
         assert!(!out_error.is_null());
         assert_eq!(
-            cino_error_code(out_error),
+            unsafe { cino_error_code(out_error) },
             cino_error_code_t::CINO_ERROR_ABI_INVALID_CBOR
         );
-        cino_error_destroy(out_error);
+        unsafe { cino_error_destroy(out_error) };
     }
 
     #[test]
@@ -541,59 +512,63 @@ mod tests {
         let mut program = ptr::null_mut();
         let mut error = ptr::null_mut();
         assert_eq!(
-            cino_program_new_mock_counter(&mut program, &mut error) as u32,
+            unsafe { cino_program_new_mock_counter(&mut program, &mut error) } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
         assert!(!program.is_null());
 
         let mut initial_value = ptr::null_mut();
         assert_eq!(
-            cino_value_new_from_cbor([0x0a].as_ptr(), 1, &mut initial_value, &mut error) as u32,
+            unsafe {
+                cino_value_new_from_cbor([0x0a].as_ptr(), 1, &mut initial_value, &mut error)
+            } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
 
         let mut state = ptr::null_mut();
         assert_eq!(
-            cino_state_new(program, initial_value, &mut state, &mut error) as u32,
+            unsafe { cino_state_new(program, initial_value, &mut state, &mut error) } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
 
         let mut event = ptr::null_mut();
         assert_eq!(
-            cino_value_new_from_cbor([0x07].as_ptr(), 1, &mut event, &mut error) as u32,
+            unsafe { cino_value_new_from_cbor([0x07].as_ptr(), 1, &mut event, &mut error) } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
 
         let mut next_state = ptr::null_mut();
         let mut actions = ptr::null_mut();
         assert_eq!(
-            cino_update(
-                program,
-                state,
-                event,
-                &mut next_state,
-                &mut actions,
-                &mut error
-            ) as u32,
+            unsafe {
+                cino_update(
+                    program,
+                    state,
+                    event,
+                    &mut next_state,
+                    &mut actions,
+                    &mut error,
+                )
+            } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
 
         let mut query = ptr::null_mut();
         assert_eq!(
-            cino_value_new_from_cbor([0xf5].as_ptr(), 1, &mut query, &mut error) as u32,
+            unsafe { cino_value_new_from_cbor([0xf5].as_ptr(), 1, &mut query, &mut error) } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
 
         let mut result = ptr::null_mut();
         assert_eq!(
-            cino_query(program, next_state, query, &mut result, &mut error) as u32,
+            unsafe { cino_query(program, next_state, query, &mut result, &mut error) } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
 
         let mut result_ptr: *const u8 = ptr::null();
         let mut result_len = 0usize;
         assert_eq!(
-            cino_value_bytes(result, &mut result_ptr, &mut result_len, &mut error) as u32,
+            unsafe { cino_value_bytes(result, &mut result_ptr, &mut result_len, &mut error) } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
         assert_eq!(
@@ -604,7 +579,9 @@ mod tests {
         let mut actions_ptr: *const u8 = ptr::null();
         let mut actions_len = 0usize;
         assert_eq!(
-            cino_actions_bytes(actions, &mut actions_ptr, &mut actions_len, &mut error) as u32,
+            unsafe {
+                cino_actions_bytes(actions, &mut actions_ptr, &mut actions_len, &mut error)
+            } as u32,
             cino_status_t::CINO_STATUS_OK as u32
         );
         assert_eq!(
@@ -612,14 +589,16 @@ mod tests {
             [0x81, 0x07]
         );
 
-        cino_value_destroy(result);
-        cino_value_destroy(query);
-        cino_actions_destroy(actions);
-        cino_state_destroy(next_state);
-        cino_value_destroy(event);
-        cino_state_destroy(state);
-        cino_value_destroy(initial_value);
-        cino_program_destroy(program);
+        unsafe {
+            cino_value_destroy(result);
+            cino_value_destroy(query);
+            cino_actions_destroy(actions);
+            cino_state_destroy(next_state);
+            cino_value_destroy(event);
+            cino_state_destroy(state);
+            cino_value_destroy(initial_value);
+            cino_program_destroy(program);
+        }
     }
 
     #[test]
