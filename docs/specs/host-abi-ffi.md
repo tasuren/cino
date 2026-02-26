@@ -45,10 +45,12 @@ Rust クレート API は C ABI の安全ラッパとして提供する。
 
 ## 6. シリアライズ境界
 
-MVP では次のどちらかを採用して固定する。
+MVP では CBOR（`cino-codec` クレート）に固定する。
 
-1. ABI ネイティブの値ビルダ/ゲッタ
-2. 正準バイナリ（または JSON）エンコード/デコード
+- `cino_value_t` / `cino_actions_t` は内部で CBOR バイト列を保持する
+- ホストは `cino_value_new_from_cbor` で CBOR バイト列を渡し、`cino_value_bytes` / `cino_actions_bytes` で取り出す
+- CBOR エンコードは RFC 8949 Core Deterministic Encoding Requirements に準拠する
+- JSON はデバッグ用途にのみ使用し、ABI の正準フォーマットとして扱わない
 
 ## 7. エラーモデル
 

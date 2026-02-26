@@ -10,7 +10,9 @@ This repository uses a Cargo workspace with the following crates:
 - `cino-sema`: static semantics layer
 - `cino-ir`: typed IR and lowering layer
 - `cino-vm`: bytecode execution layer
+- `cino-codec`: CBOR serialization/deserialization layer for VM values
 - `cino-runtime`: public runtime API layer
+- `cino-ffi-c`: C ABI bindings (cdylib/rlib) for host integration
 - `cino-cli`: developer CLI
 
 ## CLI Usage
@@ -24,12 +26,12 @@ cino check --file examples/counter.cino
 
 ### Run update or query
 ```bash
-# カウントを 0 から Increment
+# Increment count state to 1 from 0
 cino run update --file examples/counter.cino \
   --state '0' \
   --event '{"$tag": "Increment", "$fields": {}}'
 
-# カウント 5 の状態から GetCount クエリ
+# Get count state when count state is 5
 cino run query --file examples/counter.cino \
   --state '5' \
   --query '{"$tag": "GetCount", "$fields": {}}'
@@ -45,7 +47,9 @@ cino docgen --file examples/counter.cino --out ./docs
 Dependencies are configured as a one-way layered graph without cycles.
 
 - `cino-sema` -> `cino-syntax`
-- `cino-ir` -> `cino-sema`
-- `cino-vm` -> `cino-ir`
+- `cino-ir` -> `cino-sema`, `cino-syntax`
+- `cino-vm` -> `cino-ir`, `cino-syntax`
+- `cino-codec` -> `cino-vm`
 - `cino-runtime` -> `cino-vm`
-- `cino-cli` -> `cino-runtime`
+- `cino-ffi-c` -> `cino-runtime`, `cino-vm`, `cino-codec`
+- `cino-cli` -> `cino-runtime`, `cino-syntax`, `cino-sema`, `cino-ir`, `cino-vm`, `cino-codec`

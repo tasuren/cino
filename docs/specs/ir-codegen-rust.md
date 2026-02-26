@@ -59,7 +59,8 @@ MVP の正準実行形式はバイトコードとする。
 初期実装段階では、正準経路（IR -> バイトコード -> VM）に加えて、
 `cino-vm` が**型付き IR を直接評価する実行器**を提供してよい。
 
-- 許可範囲は MVP の最小式（`LocalRef` / `Int` / `Bool` / `Tuple` / `Binary` / `Call` / `Let` / `Match`）
+- 許可範囲は MVP の最小式（`LocalRef` / `Int` / `Bool` / `Tuple` / `List` / `Record` / `Binary` / `Call` / `Let` / `Match`）
+- `Match` のアームパターンは `Wildcard` / `Binding` / `Variant` を許可する
 - `update/query` の公開契約、決定性、上限超過時エラー契約はバイトコード実行と同一
 - panic/trap は構造化エラーに変換する
 - 将来バイトコード経路が安定した時点で、IR直接実行器は開発用/検証用へ縮退してよい
@@ -199,20 +200,24 @@ MVP では Cargo workspace を採用し、責務境界ごとに次のクレー�
 2. `cino-sema`
 3. `cino-ir`
 4. `cino-vm`
-5. `cino-runtime`
-6. `cino-ffi-c`
-7. `cino-docgen`
+5. `cino-codec`
+6. `cino-runtime`
+7. `cino-ffi-c`
 8. `cino-cli`
 
 初期段階では `cino-syntax` / `cino-sema` / `cino-ir` / `cino-vm` / `cino-cli` を最小セットとし、
-FFI と docgen は段階的に追加してよい。
+CBOR シリアライズ（`cino-codec`）と FFI（`cino-ffi-c`）は段階的に追加してよい。
 
 ## 9. クレート依存方向
 
 依存は次方向を原則とする。
 
-- `cino-syntax` -> `cino-sema` -> `cino-ir` -> `cino-vm` -> `cino-runtime`
-- `cino-ffi-c` は `cino-runtime` に依存
-- `cino-cli` は上位オーケストレーションとして `cino-runtime` / `cino-docgen` に依存
+- `cino-sema` -> `cino-syntax`
+- `cino-ir` -> `cino-sema`, `cino-syntax`
+- `cino-vm` -> `cino-ir`, `cino-syntax`
+- `cino-codec` -> `cino-vm`
+- `cino-runtime` -> `cino-vm`
+- `cino-ffi-c` -> `cino-runtime`, `cino-vm`, `cino-codec`
+- `cino-cli` -> `cino-runtime`, `cino-syntax`, `cino-sema`, `cino-ir`, `cino-vm`, `cino-codec`
 
 循環依存は禁止する。

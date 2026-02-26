@@ -239,6 +239,9 @@ fn score(base: Int, bonus: Int) -> Int {
 - `Option<T>`, `Result<T, E>`
 - ユーザー定義 `enum` / `record`
 
+TODO: `Decimal` 型は型検査層（`cino-sema`）では認識されるが、VM（`cino-vm`）の値表現（`VmValue`）に対応バリアントが存在しないため実行時には未対応。  
+TODO: `String` 型は型検査層では認識されるが、字句解析器（`cino-syntax`）が文字列リテラルを未対応のため、実際に文字列値を書けない。
+
 ## 8. パターンマッチ
 
 - `event` / `query` / 任意の `enum` に対する `match` は網羅必須

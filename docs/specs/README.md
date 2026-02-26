@@ -31,8 +31,8 @@
 - `cino-syntax`: 構文木とパーサ
 - `cino-sema`: 型/純粋性/網羅性検査
 - `cino-ir`: 型付きIRと lowering
-- `cino-vm`: バイトコード実行器
+- `cino-vm`: バイトコード実行器（MVPブートストラップとしてIR直接実行器を含む）
+- `cino-codec`: CBOR シリアライズ/デシリアライズ
 - `cino-runtime`: 実行APIと状態ハンドル管理
 - `cino-ffi-c`: C ABI 公開層
-- `cino-docgen`: 仕様書生成
 - `cino-cli`: 開発者向けCLI
