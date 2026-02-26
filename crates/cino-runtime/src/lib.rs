@@ -7,17 +7,9 @@ use std::{
 
 use cino_vm::{VmAction, VmError, VmErrorCode, VmLimits, VmProgram, VmState, VmValue};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimeConfig {
     pub limits: VmLimits,
-}
-
-impl Default for RuntimeConfig {
-    fn default() -> Self {
-        Self {
-            limits: VmLimits::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
