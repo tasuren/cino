@@ -58,6 +58,8 @@ enum TypeDeclKindTag {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TypeInfo {
     kind: TypeDeclKindTag,
+    generics: Vec<String>,
+    fields: Vec<(String, Ty)>,
     variants: HashMap<String, Vec<(String, Ty)>>,
 }
 
@@ -72,6 +74,7 @@ struct Checker {
     diagnostics: Vec<Diagnostic>,
     fn_table: HashMap<String, FnInfo>,
     type_table: HashMap<String, TypeInfo>,
+    variant_to_type: HashMap<String, String>,
 }
 
 impl Checker {
@@ -80,6 +83,7 @@ impl Checker {
             diagnostics: Vec::new(),
             fn_table: HashMap::new(),
             type_table: HashMap::new(),
+            variant_to_type: HashMap::new(),
         }
     }
 
@@ -87,25 +91,43 @@ impl Checker {
         for decl in &program.decls {
             match decl {
                 TopDecl::Type(td) => {
-                    let (kind, variants) = match &td.kind {
-                        TypeDeclKind::State(_) => (TypeDeclKindTag::State, HashMap::new()),
-                        TypeDeclKind::Record(_) => (TypeDeclKindTag::Record, HashMap::new()),
+                    let (kind, fields, variants) = match &td.kind {
+                        TypeDeclKind::State(r) => (
+                            TypeDeclKindTag::State,
+                            self.collect_fields(r.fields.iter()),
+                            HashMap::new(),
+                        ),
+                        TypeDeclKind::Record(r) => (
+                            TypeDeclKindTag::Record,
+                            self.collect_fields(r.fields.iter()),
+                            HashMap::new(),
+                        ),
                         TypeDeclKind::Event(v) => (
                             TypeDeclKindTag::Event,
-                            self.collect_variants(v.variants.iter()),
+                            Vec::new(),
+                            self.collect_variants(v.variants.iter(), &td.name),
                         ),
                         TypeDeclKind::Query(v) => (
                             TypeDeclKindTag::Query,
-                            self.collect_variants(v.variants.iter()),
+                            Vec::new(),
+                            self.collect_variants(v.variants.iter(), &td.name),
                         ),
                         TypeDeclKind::Enum(v) => (
                             TypeDeclKindTag::Enum,
-                            self.collect_variants(v.variants.iter()),
+                            Vec::new(),
+                            self.collect_variants(v.variants.iter(), &td.name),
                         ),
                     };
 
-                    self.type_table
-                        .insert(td.name.clone(), TypeInfo { kind, variants });
+                    self.type_table.insert(
+                        td.name.clone(),
+                        TypeInfo {
+                            kind,
+                            generics: td.generics.clone(),
+                            fields,
+                            variants,
+                        },
+                    );
                 }
                 TopDecl::Function(fd) => {
                     let params = fd
@@ -127,7 +149,20 @@ impl Checker {
         }
     }
 
-    fn collect_variants<'a, I>(&self, variants: I) -> HashMap<String, Vec<(String, Ty)>>
+    fn collect_fields<'a, I>(&self, fields: I) -> Vec<(String, Ty)>
+    where
+        I: Iterator<Item = &'a cino_syntax::FieldDecl>,
+    {
+        fields
+            .map(|f| (f.name.clone(), self.ty_from_ast(&f.type_expr)))
+            .collect()
+    }
+
+    fn collect_variants<'a, I>(
+        &mut self,
+        variants: I,
+        type_name: &str,
+    ) -> HashMap<String, Vec<(String, Ty)>>
     where
         I: Iterator<Item = &'a cino_syntax::VariantDecl>,
     {
@@ -138,6 +173,8 @@ impl Checker {
                 .iter()
                 .map(|f| (f.name.clone(), self.ty_from_ast(&f.type_expr)))
                 .collect::<Vec<_>>();
+            self.variant_to_type
+                .insert(v.name.clone(), type_name.to_string());
             out.insert(v.name.clone(), payload);
         }
         out
@@ -318,6 +355,79 @@ impl Checker {
                     .map(|item| self.infer_expr(item, env, fn_kind))
                     .collect::<Vec<_>>(),
             ),
+            ExprKind::List(items) => {
+                let mut item_ty = Ty::Unknown;
+                for item in items {
+                    let ty = self.infer_expr(item, env, fn_kind);
+                    if item_ty == Ty::Unknown {
+                        item_ty = ty;
+                    } else if !self.ty_compatible(&item_ty, &ty) {
+                        self.emit(
+                            "E-TYPE-001",
+                            format!("list items must have same type, found {:?} and {:?}", item_ty, ty),
+                            item.span.start.line,
+                            item.span.start.column,
+                        );
+                    }
+                }
+                Ty::Named {
+                    name: "List".to_string(),
+                    args: vec![item_ty],
+                }
+            }
+            ExprKind::Record { name, fields } => {
+                let (ty_name, expected_fields) = if let Some(type_info) = self.type_table.get(name) {
+                    (name.clone(), type_info.fields.clone())
+                } else if let Some(type_name) = self.variant_to_type.get(name) {
+                    let type_info = self.type_table.get(type_name).unwrap();
+                    (
+                        type_name.clone(),
+                        type_info.variants.get(name).cloned().unwrap_or_default(),
+                    )
+                } else {
+                    self.emit(
+                        "E-TYPE-002",
+                        format!("unresolved type or variant `{name}`"),
+                        expr.span.start.line,
+                        expr.span.start.column,
+                    );
+                    return Ty::Unknown;
+                };
+
+                for f in fields {
+                    let val_ty = self.infer_expr(&f.value, env, fn_kind);
+                    if let Some((_, expected_ty)) = expected_fields.iter().find(|(n, _)| n == &f.name)
+                    {
+                        let type_info = self.type_table.get(&ty_name).unwrap();
+                        let is_generic_param = matches!(expected_ty, Ty::Named { name: n, args } if args.is_empty() && type_info.generics.contains(n));
+
+                        if !is_generic_param && !self.ty_compatible(&val_ty, expected_ty) {
+                            self.emit(
+                                "E-TYPE-001",
+                                format!(
+                                    "field `{}` type mismatch: expected {:?}, got {:?}",
+                                    f.name, expected_ty, val_ty
+                                ),
+                                f.span.start.line,
+                                f.span.start.column,
+                            );
+                        }
+                    } else {
+                        self.emit(
+                            "E-TYPE-002",
+                            format!("unknown field `{}` for `{name}`", f.name),
+                            f.span.start.line,
+                            f.span.start.column,
+                        );
+                    }
+                }
+
+                let type_info = self.type_table.get(&ty_name).unwrap();
+                Ty::Named {
+                    name: ty_name,
+                    args: vec![Ty::Unknown; type_info.generics.len()],
+                }
+            }
             ExprKind::Binary { lhs, op, rhs } => {
                 let lhs_ty = self.infer_expr(lhs, env, fn_kind);
                 let rhs_ty = self.infer_expr(rhs, env, fn_kind);
@@ -618,7 +728,34 @@ impl Checker {
     }
 
     fn ty_compatible(&self, a: &Ty, b: &Ty) -> bool {
-        a == b || matches!(a, Ty::Unknown) || matches!(b, Ty::Unknown)
+        if a == b || matches!(a, Ty::Unknown) || matches!(b, Ty::Unknown) {
+            return true;
+        }
+
+        match (a, b) {
+            (
+                Ty::Named {
+                    name: na,
+                    args: aa,
+                },
+                Ty::Named {
+                    name: nb,
+                    args: ab,
+                },
+            ) => {
+                if na != nb || aa.len() != ab.len() {
+                    return false;
+                }
+                aa.iter().zip(ab.iter()).all(|(l, r)| self.ty_compatible(l, r))
+            }
+            (Ty::Tuple(la), Ty::Tuple(lb)) => {
+                if la.len() != lb.len() {
+                    return false;
+                }
+                la.iter().zip(lb.iter()).all(|(l, r)| self.ty_compatible(l, r))
+            }
+            _ => false,
+        }
     }
 
     fn resolve_builtin(&self, name: &str) -> Option<Ty> {

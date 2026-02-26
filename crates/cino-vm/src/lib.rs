@@ -339,6 +339,23 @@ impl<'a> Evaluator<'a> {
                 }
                 VmValue::Tuple(out)
             }
+            IrExprKind::List(items) => {
+                let mut out = Vec::with_capacity(items.len());
+                for item in items {
+                    out.push(self.eval_expr(item, env)?);
+                }
+                VmValue::List(out)
+            }
+            IrExprKind::Record { name, fields } => {
+                let mut out = BTreeMap::new();
+                for field in fields {
+                    out.insert(field.name.clone(), self.eval_expr(&field.value, env)?);
+                }
+                VmValue::Enum {
+                    tag: name.clone(),
+                    fields: out,
+                }
+            }
             IrExprKind::Binary { lhs, op, rhs } => {
                 let lhs = self.eval_expr(lhs, env)?;
                 let rhs = self.eval_expr(rhs, env)?;

@@ -56,6 +56,14 @@ impl<'a> Lexer<'a> {
                     self.bump_char();
                     TokenKind::RBrace
                 }
+                '[' => {
+                    self.bump_char();
+                    TokenKind::LBracket
+                }
+                ']' => {
+                    self.bump_char();
+                    TokenKind::RBracket
+                }
                 '<' => {
                     self.bump_char();
                     TokenKind::LAngle

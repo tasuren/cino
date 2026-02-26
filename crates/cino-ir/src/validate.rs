@@ -25,7 +25,7 @@ pub fn validate_program(program: &IrProgram) -> Vec<Diagnostic> {
         .collect::<HashMap<_, _>>();
 
     for function in &program.functions {
-        if function.body.ty != function.return_type {
+        if !function.body.ty.is_compatible(&function.return_type) {
             diagnostics.push(Diagnostic {
                 code: "E-IR-VAL-001",
                 message: format!(
@@ -64,7 +64,7 @@ fn validate_expr(
                 });
                 return;
             };
-            if &expr.ty != expected {
+            if !expr.ty.is_compatible(expected) {
                 diagnostics.push(Diagnostic {
                     code: "E-IR-VAL-003",
                     message: format!(
@@ -77,7 +77,7 @@ fn validate_expr(
             }
         }
         IrExprKind::Int(_) => {
-            if expr.ty != IrType::Int {
+            if !expr.ty.is_compatible(&IrType::Int) {
                 diagnostics.push(Diagnostic {
                     code: "E-IR-VAL-004",
                     message: "int literal must have Int type".to_string(),
@@ -87,7 +87,7 @@ fn validate_expr(
             }
         }
         IrExprKind::Bool(_) => {
-            if expr.ty != IrType::Bool {
+            if !expr.ty.is_compatible(&IrType::Bool) {
                 diagnostics.push(Diagnostic {
                     code: "E-IR-VAL-004",
                     message: "bool literal must have Bool type".to_string(),
@@ -101,7 +101,7 @@ fn validate_expr(
                 validate_expr(item, env, signatures, diagnostics);
             }
             let tuple_ty = IrType::Tuple(items.iter().map(|item| item.ty.clone()).collect());
-            if expr.ty != tuple_ty {
+            if !expr.ty.is_compatible(&tuple_ty) {
                 diagnostics.push(Diagnostic {
                     code: "E-IR-VAL-004",
                     message: format!(
@@ -113,10 +113,44 @@ fn validate_expr(
                 });
             }
         }
+        IrExprKind::List(items) => {
+            for item in items {
+                validate_expr(item, env, signatures, diagnostics);
+            }
+            let mut item_ty = IrType::Unknown;
+            if let Some(first) = items.first() {
+                item_ty = first.ty.clone();
+            }
+            let list_ty = IrType::Named {
+                name: "List".to_string(),
+                args: vec![item_ty],
+            };
+            if !expr.ty.is_compatible(&list_ty) {
+                diagnostics.push(Diagnostic {
+                    code: "E-IR-VAL-004",
+                    message: format!(
+                        "list expression type mismatch: expr {:?}, inferred {:?}",
+                        expr.ty, list_ty
+                    ),
+                    line: expr.span.line,
+                    column: expr.span.column,
+                });
+            }
+        }
+        IrExprKind::Record { name: _, fields } => {
+            for field in fields {
+                validate_expr(&field.value, env, signatures, diagnostics);
+            }
+            // For MVP, we don't strictly validate that all required fields are present here,
+            // as it should have been caught by sema.
+        }
         IrExprKind::Binary { lhs, rhs, .. } => {
             validate_expr(lhs, env, signatures, diagnostics);
             validate_expr(rhs, env, signatures, diagnostics);
-            if lhs.ty != IrType::Int || rhs.ty != IrType::Int || expr.ty != IrType::Int {
+            if !lhs.ty.is_compatible(&IrType::Int)
+                || !rhs.ty.is_compatible(&IrType::Int)
+                || !expr.ty.is_compatible(&IrType::Int)
+            {
                 diagnostics.push(Diagnostic {
                     code: "E-IR-VAL-005",
                     message: "binary expression must use Int operands and return Int".to_string(),
@@ -138,7 +172,7 @@ fn validate_expr(
                 });
                 return;
             };
-            if expr.ty != sig.return_type {
+            if !expr.ty.is_compatible(&sig.return_type) {
                 diagnostics.push(Diagnostic {
                     code: "E-IR-VAL-007",
                     message: format!(
@@ -163,7 +197,7 @@ fn validate_expr(
             }
             for (idx, arg) in args.iter().enumerate() {
                 if let Some(expected) = sig.params.get(idx) {
-                    if &arg.ty != expected {
+                    if !arg.ty.is_compatible(expected) {
                         diagnostics.push(Diagnostic {
                             code: "E-IR-VAL-009",
                             message: format!(
@@ -183,7 +217,7 @@ fn validate_expr(
             validate_expr(value, env, signatures, diagnostics);
             let previous = env.insert(name.clone(), value.ty.clone());
             validate_expr(body, env, signatures, diagnostics);
-            if body.ty != expr.ty {
+            if !body.ty.is_compatible(&expr.ty) {
                 diagnostics.push(Diagnostic {
                     code: "E-IR-VAL-010",
                     message: "let expression type must equal body type".to_string(),
@@ -211,7 +245,7 @@ fn validate_expr(
                 let mut arm_env = env.clone();
                 validate_pattern(&arm.pattern, &subject.ty, &mut arm_env, diagnostics);
                 validate_expr(&arm.body, &mut arm_env, signatures, diagnostics);
-                if arm.body.ty != expr.ty {
+                if !arm.body.ty.is_compatible(&expr.ty) {
                     diagnostics.push(Diagnostic {
                         code: "E-IR-VAL-012",
                         message: format!(
@@ -233,7 +267,7 @@ fn validate_pattern(
     env: &mut HashMap<String, IrType>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if &pattern.ty != expected_ty {
+    if !pattern.ty.is_compatible(expected_ty) {
         diagnostics.push(Diagnostic {
             code: "E-IR-VAL-013",
             message: format!(

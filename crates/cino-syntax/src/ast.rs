@@ -14,6 +14,7 @@ pub enum TopDecl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeDecl {
     pub name: String,
+    pub generics: Vec<String>,
     pub kind: TypeDeclKind,
     pub span: Span,
 }
@@ -132,6 +133,11 @@ pub enum ExprKind {
     Int(i64),
     Bool(bool),
     Tuple(Vec<Expr>),
+    List(Vec<Expr>),
+    Record {
+        name: String,
+        fields: Vec<RecordField>,
+    },
     Binary {
         lhs: Box<Expr>,
         op: BinaryOp,
@@ -179,6 +185,13 @@ pub enum PatternKind {
 pub struct PatternField {
     pub name: String,
     pub pattern: Option<Box<Pattern>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordField {
+    pub name: String,
+    pub value: Expr,
     pub span: Span,
 }
 

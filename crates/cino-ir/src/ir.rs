@@ -57,6 +57,11 @@ pub enum IrExprKind {
     Int(i64),
     Bool(bool),
     Tuple(Vec<IrExpr>),
+    List(Vec<IrExpr>),
+    Record {
+        name: String,
+        fields: Vec<IrRecordField>,
+    },
     Binary {
         lhs: Box<IrExpr>,
         op: BinaryOp,
@@ -75,6 +80,12 @@ pub enum IrExprKind {
         subject: Box<IrExpr>,
         arms: Vec<IrMatchArm>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IrRecordField {
+    pub name: String,
+    pub value: IrExpr,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,4 +130,41 @@ pub enum IrType {
     Named { name: String, args: Vec<IrType> },
     Tuple(Vec<IrType>),
     Unknown,
+}
+
+impl IrType {
+    pub fn is_compatible(&self, other: &IrType) -> bool {
+        if self == other || matches!(self, IrType::Unknown) || matches!(other, IrType::Unknown) {
+            return true;
+        }
+
+        match (self, other) {
+            (
+                IrType::Named {
+                    name: na,
+                    args: aa,
+                },
+                IrType::Named {
+                    name: nb,
+                    args: ab,
+                },
+            ) => {
+                if na != nb || aa.len() != ab.len() {
+                    return false;
+                }
+                aa.iter()
+                    .zip(ab.iter())
+                    .all(|(l, r)| l.is_compatible(r))
+            }
+            (IrType::Tuple(la), IrType::Tuple(lb)) => {
+                if la.len() != lb.len() {
+                    return false;
+                }
+                la.iter()
+                    .zip(lb.iter())
+                    .all(|(l, r)| l.is_compatible(r))
+            }
+            _ => false,
+        }
+    }
 }

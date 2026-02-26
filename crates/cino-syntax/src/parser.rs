@@ -1,8 +1,9 @@
 use crate::{
     ast::{
         BinaryOp, BlockExpr, Expr, ExprKind, FieldDecl, FnDecl, FnKind, LetStmt, MatchArm,
-        MatchExpr, Param, Pattern, PatternField, PatternKind, Program, RecordBody, ReturnStmt,
-        Stmt, TopDecl, TypeDecl, TypeDeclKind, TypeExpr, TypeExprKind, VariantDecl, VariantList,
+        MatchExpr, Param, Pattern, PatternField, PatternKind, Program, RecordBody, RecordField,
+        ReturnStmt, Stmt, TopDecl, TypeDecl, TypeDeclKind, TypeExpr, TypeExprKind, VariantDecl,
+        VariantList,
     },
     error::ParseError,
     lexer::Lexer,
@@ -63,9 +64,11 @@ impl Parser {
     fn parse_state_decl(&mut self) -> Result<TypeDecl, ParseError> {
         let start = self.expect(TokenTag::State)?.span.start;
         let name = self.expect_ident()?;
+        let generics = self.parse_generic_params()?;
         let body = self.parse_record_body()?;
         Ok(TypeDecl {
             name,
+            generics,
             kind: TypeDeclKind::State(body.clone()),
             span: Span::join(start, body.span.end),
         })
@@ -74,9 +77,11 @@ impl Parser {
     fn parse_record_decl(&mut self) -> Result<TypeDecl, ParseError> {
         let start = self.expect(TokenTag::Record)?.span.start;
         let name = self.expect_ident()?;
+        let generics = self.parse_generic_params()?;
         let body = self.parse_record_body()?;
         Ok(TypeDecl {
             name,
+            generics,
             kind: TypeDeclKind::Record(body.clone()),
             span: Span::join(start, body.span.end),
         })
@@ -85,10 +90,12 @@ impl Parser {
     fn parse_event_decl(&mut self) -> Result<TypeDecl, ParseError> {
         let start = self.expect(TokenTag::Event)?.span.start;
         let name = self.expect_ident()?;
+        let generics = self.parse_generic_params()?;
         self.expect(TokenTag::Eq)?;
         let variants = self.parse_variant_list()?;
         Ok(TypeDecl {
             name,
+            generics,
             kind: TypeDeclKind::Event(variants.clone()),
             span: Span::join(start, variants.span.end),
         })
@@ -97,10 +104,12 @@ impl Parser {
     fn parse_query_decl(&mut self) -> Result<TypeDecl, ParseError> {
         let start = self.expect(TokenTag::Query)?.span.start;
         let name = self.expect_ident()?;
+        let generics = self.parse_generic_params()?;
         self.expect(TokenTag::Eq)?;
         let variants = self.parse_variant_list()?;
         Ok(TypeDecl {
             name,
+            generics,
             kind: TypeDeclKind::Query(variants.clone()),
             span: Span::join(start, variants.span.end),
         })
@@ -109,13 +118,31 @@ impl Parser {
     fn parse_enum_decl(&mut self) -> Result<TypeDecl, ParseError> {
         let start = self.expect(TokenTag::Enum)?.span.start;
         let name = self.expect_ident()?;
+        let generics = self.parse_generic_params()?;
         self.expect(TokenTag::Eq)?;
         let variants = self.parse_variant_list()?;
         Ok(TypeDecl {
             name,
+            generics,
             kind: TypeDeclKind::Enum(variants.clone()),
             span: Span::join(start, variants.span.end),
         })
+    }
+
+    fn parse_generic_params(&mut self) -> Result<Vec<String>, ParseError> {
+        if self.consume_if(TokenTag::LAngle).is_none() {
+            return Ok(Vec::new());
+        }
+
+        let mut out = Vec::new();
+        loop {
+            out.push(self.expect_ident()?);
+            if self.consume_if(TokenTag::Comma).is_none() {
+                break;
+            }
+        }
+        self.expect(TokenTag::RAngle)?;
+        Ok(out)
     }
 
     fn parse_variant_list(&mut self) -> Result<VariantList, ParseError> {
@@ -419,6 +446,24 @@ impl Parser {
             });
         }
 
+        if self.consume_if(TokenTag::LBracket).is_some() {
+            let start = self.previous().span.start;
+            let mut items = Vec::new();
+            if !self.check(TokenTag::RBracket) {
+                loop {
+                    items.push(self.parse_expr(0)?);
+                    if self.consume_if(TokenTag::Comma).is_none() {
+                        break;
+                    }
+                }
+            }
+            let end = self.expect(TokenTag::RBracket)?.span.end;
+            return Ok(Expr {
+                span: Span::join(start, end),
+                kind: ExprKind::List(items),
+            });
+        }
+
         if self.consume_if(TokenTag::LParen).is_some() {
             let start = self.previous().span.start;
             let first = self.parse_expr(0)?;
@@ -447,11 +492,40 @@ impl Parser {
         let token = self.bump();
         let span = token.span;
         let kind = match token.kind {
-            TokenKind::Ident(name) => ExprKind::Ident(name),
+            TokenKind::Ident(name) => {
+                if self.check(TokenTag::LBrace) && self.looks_like_record_expr() {
+                    self.bump();
+                    let mut fields = Vec::new();
+                    while !self.check(TokenTag::RBrace) {
+                        let f_start = self.current().span.start;
+                        let f_name = self.expect_ident()?;
+                        self.expect(TokenTag::Colon)?;
+                        let f_value = self.parse_expr(0)?;
+                        fields.push(RecordField {
+                            name: f_name,
+                            value: f_value,
+                            span: Span::join(f_start, self.previous().span.end),
+                        });
+                        let _ = self.consume_if(TokenTag::Comma);
+                        let _ = self.consume_if(TokenTag::Semi);
+                    }
+                    self.expect(TokenTag::RBrace)?;
+                    ExprKind::Record { name, fields }
+                } else {
+                    ExprKind::Ident(name)
+                }
+            }
             TokenKind::State => ExprKind::Ident("state".to_string()),
             TokenKind::Event => ExprKind::Ident("event".to_string()),
             TokenKind::Query => ExprKind::Ident("query".to_string()),
             TokenKind::Update => ExprKind::Ident("update".to_string()),
+            TokenKind::Enum => ExprKind::Ident("enum".to_string()),
+            TokenKind::Record => ExprKind::Ident("record".to_string()),
+            TokenKind::Let => ExprKind::Ident("let".to_string()),
+            TokenKind::Match => ExprKind::Ident("match".to_string()),
+            TokenKind::Return => ExprKind::Ident("return".to_string()),
+            TokenKind::If => ExprKind::Ident("if".to_string()),
+            TokenKind::Fn => ExprKind::Ident("fn".to_string()),
             TokenKind::Int(v) => ExprKind::Int(v),
             TokenKind::True => ExprKind::Bool(true),
             TokenKind::False => ExprKind::Bool(false),
@@ -628,6 +702,11 @@ impl Parser {
         TokenTag::from(&self.previous().kind)
     }
 
+    fn looks_like_record_expr(&self) -> bool {
+        matches!(self.peek_tag(1), TokenTag::RBrace)
+            || matches!(self.peek_tag(2), TokenTag::Colon)
+    }
+
     fn peek_tag(&self, offset: usize) -> TokenTag {
         let idx = self
             .cursor
@@ -655,6 +734,13 @@ impl Parser {
             TokenKind::Event => Some("event".to_string()),
             TokenKind::Query => Some("query".to_string()),
             TokenKind::Update => Some("update".to_string()),
+            TokenKind::Enum => Some("enum".to_string()),
+            TokenKind::Record => Some("record".to_string()),
+            TokenKind::Let => Some("let".to_string()),
+            TokenKind::Match => Some("match".to_string()),
+            TokenKind::Return => Some("return".to_string()),
+            TokenKind::If => Some("if".to_string()),
+            TokenKind::Fn => Some("fn".to_string()),
             _ => None,
         }
     }

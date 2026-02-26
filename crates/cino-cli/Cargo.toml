@@ -6,6 +6,16 @@ license.workspace = true
 
 [dependencies]
 cino-runtime = { path = "../cino-runtime" }
+cino-syntax = { path = "../cino-syntax" }
+cino-sema = { path = "../cino-sema" }
+cino-ir = { path = "../cino-ir" }
+cino-vm = { path = "../cino-vm" }
+cino-codec = { path = "../cino-codec" }
+
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
 
 [[bin]]
 name = "cino"
