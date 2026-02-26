@@ -6,6 +6,8 @@ The core idea is a hard boundary between domain logic and the outside world. In 
 
 The goal is to explore how strictly enforcing this boundary affects the testability, portability, and long-term maintainability of domain logic.
 
+For the full rationale and design overview, see [docs/proposal.md](docs/proposal.md).
+
 ## Cargo workspace (MVP)
 
 This repository uses a Cargo workspace with the following crates:

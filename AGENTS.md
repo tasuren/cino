@@ -23,7 +23,7 @@
 
 作業前に次を確認すること。
 
-- `PROPOSAL.md`
+- `docs/proposal.md`
 - `docs/specs/core-language.md`
 - `docs/specs/static-semantics.md`
 - `docs/specs/runtime-memory-rust.md`
