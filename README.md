@@ -21,6 +21,10 @@ This repository uses a Cargo workspace with the following crates:
 - `cino-ffi-c`: C ABI bindings (cdylib/rlib) for host integration
 - `cino-cli`: developer CLI
 
+## Examples
+
+The [`examples/`](examples/) directory contains standalone `.cino` programs and a Rust integration sample. See [examples/README.md](examples/README.md) for the full list and usage instructions.
+
 ## CLI Usage
 
 The `cino` CLI provides tools for developing and verifying cino programs.
